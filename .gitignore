@@ -1,0 +1,20 @@
+# The user's data when running from source (API key, settings, usage, sessions, log, web view storage)
+/.env
+/settings.json
+/usage.json
+/sessions/
+/app.log*
+/webview/
+/*.tmp
+
+# Build output
+/dist/
+__pycache__/
+
+# Local notes and Claude Code's local files
+/CLAUDE.local.md
+/.claude/*
+!/.claude/settings.json
+
+# Screenshots taken to check the UI (kept locally for review)
+/shots/

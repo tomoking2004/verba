@@ -1,0 +1,5 @@
+# Text is stored with LF. The Windows scripts keep CRLF (the .ps1 files also keep their UTF-8 BOM).
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.ico binary

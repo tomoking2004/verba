@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verba</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+</head>
+<body>
+<!-- Icons are inserted from ICONS in app.js by their data-icon name (the two filled glyphs inside the round play button are the only ones drawn here). Explanations appear when a "?" is hovered or focused. -->
+
+<!-- Without an API key nothing can be recorded or transcribed, so until one is registered only this view is shown. -->
+<section class="welcome" id="keyView" hidden>
+  <form class="form" id="keyForm">
+    <a class="brand" href="https://github.com/tomoking2004/verba" target="_blank" rel="noopener"><img src="icon.svg" alt="">Verba</a>
+    <h1>Gemini の API キー</h1>
+    <div>
+      <input id="firstKey" type="password" autocomplete="off" spellcheck="false" aria-label="Gemini の API キー">
+      <p class="field-error" id="firstKeyError" role="alert" hidden></p>
+    </div>
+    <div class="actions">
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com でキーを発行</a>
+      <button class="primary large" id="firstKeySave">登録して始める</button>
+    </div>
+  </form>
+</section>
+
+<div class="shell" id="shell" hidden>
+  <aside class="side">
+    <div class="side-head">
+      <a class="brand" href="https://github.com/tomoking2004/verba" target="_blank" rel="noopener"><img src="icon.svg" alt="">Verba</a>
+      <button id="recordingNew"><svg class="icon" data-icon="plus"></svg><span>新しく録音</span></button>
+    </div>
+    <div class="side-search">
+      <input id="search" type="search" placeholder="記録を検索" aria-label="記録を検索" title="タイトルと文字起こしを探す（Ctrl+F）">
+    </div>
+    <nav class="list" id="list"></nav>
+    <div class="side-foot">
+      <button class="ghost" id="settingsOpen"><svg class="icon" data-icon="gear"></svg>設定</button>
+      <a class="button ghost" href="https://github.com/tomoking2004/verba#使い方" target="_blank" rel="noopener"><svg class="icon" data-icon="book"></svg>使い方</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="view" id="newView" hidden>
+      <div class="form">
+        <h1>新しい録音</h1>
+        <div>
+          <label for="newTitle">タイトル</label>
+          <input id="newTitle" placeholder="例：A社 一次面接">
+        </div>
+        <div>
+          <div class="field-head">
+            <label for="newMemo">メモ</label>
+            <button type="button" class="help" aria-label="メモの説明" aria-describedby="newMemoTip"><svg class="icon" data-icon="help"></svg></button>
+            <span class="tip" role="tooltip" id="newMemoTip">Gemini に渡す前提です。人名や用語の表記、要約への注文を書きます。案内のメールをそのまま貼っても<span class="nowrap">かまいません。</span></span>
+          </div>
+          <textarea class="memo" id="newMemo" placeholder="例：面接官は人事の田中さんと開発部の佐藤さん。&#10;要約では、質問を漏れなく並べてほしい。"></textarea>
+        </div>
+        <div>
+          <label for="micSelect">自分の声</label>
+          <select id="micSelect"></select>
+        </div>
+        <div>
+          <div class="field-head">
+            <label for="speakerSelect">相手の声</label>
+            <button type="button" class="help" aria-label="相手の声の説明" aria-describedby="speakerTip"><svg class="icon" data-icon="help"></svg></button>
+            <span class="tip" role="tooltip" id="speakerTip">通話や動画の音を聞いている出力先（イヤホンなど）を選びます。そこから流れる音を相手の声として録ります。</span>
+          </div>
+          <select id="speakerSelect"></select>
+          <div class="field-head check-row">
+            <label class="check"><input type="checkbox" id="echoCheck">スピーカーで聞く</label>
+            <button type="button" class="help" aria-label="スピーカーで聞くの説明" aria-describedby="echoTip"><svg class="icon" data-icon="help"></svg></button>
+            <span class="tip" role="tooltip" id="echoTip">イヤホンを使わず、相手の声をスピーカーから出して聞くときに<span class="nowrap">印を付けます。</span>マイクにも入った相手の声を、<span class="nowrap">自分の発話から除きます。</span></span>
+          </div>
+        </div>
+        <button class="primary large" id="recordingStart">録音を開始</button>
+      </div>
+    </section>
+
+    <section class="view" id="sessionView" hidden>
+      <div class="head">
+        <!-- The placeholder is UNTITLED in verba/store.py. -->
+        <input class="title" id="title" placeholder="無題の記録" aria-label="タイトル">
+        <div class="meta" id="meta"></div>
+        <div class="actions">
+          <button id="sessionReveal"><svg class="icon" data-icon="folder"></svg>フォルダを開く</button>
+          <button id="sessionDelete"><svg class="icon" data-icon="trash"></svg>削除</button>
+        </div>
+      </div>
+
+      <div class="recording-bar" id="recordingBar" hidden>
+        <span class="recording-state" id="recordingState"><i class="dot"></i><span id="recordingLabel">録音中</span></span>
+        <span class="clock" id="recordingClock">00:00</span>
+        <div class="meters">
+          <span class="me">自分</span><span class="meter me"><i id="levelMe"></i></span>
+          <span class="other">相手</span><span class="meter other"><i id="levelOther"></i></span>
+        </div>
+        <div class="actions">
+          <button id="recordingPause"><svg class="icon" data-icon="pause"></svg><span>一時停止</span></button>
+          <button class="stop" id="recordingStop"><svg class="icon" data-icon="stop"></svg>停止</button>
+        </div>
+      </div>
+      <div class="note" id="recordingWarning" hidden></div>
+
+      <!-- The player and the memo belong to the whole session and do not change with the tabs, so they sit above the tabs. -->
+      <div class="player" id="player" hidden>
+        <button class="play" id="playerPlay" aria-label="再生" title="再生（Space）">
+          <svg class="icon-play" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z"/></svg>
+          <svg class="icon-pause" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1.5h2.5v9H2.5zM7 1.5h2.5v9H7z"/></svg>
+        </button>
+        <span class="player-time" id="playerNow">00:00</span>
+        <input type="range" id="playerSeek" min="0" max="1" step="0.1" value="0" aria-label="再生位置">
+        <span class="player-time" id="playerEnd">00:00</span>
+        <audio id="audio" preload="metadata"></audio>
+      </div>
+
+      <!-- The transcript and the summary are built on the memo, so it sits above both. -->
+      <div class="memo-box">
+        <div class="field-head">
+          <label for="memo">メモ</label>
+          <button type="button" class="help" aria-label="メモの説明" aria-describedby="memoTip"><svg class="icon" data-icon="help"></svg></button>
+          <span class="tip" role="tooltip" id="memoTip">文字起こしと要約は、このメモを前提に作られます。書き換えたあとに作り直すと、表記や内容に<span class="nowrap">反映されます。</span></span>
+        </div>
+        <textarea class="memo" id="memo" placeholder="例：面接官は人事の田中さんと開発部の佐藤さん。&#10;要約では、質問を漏れなく並べてほしい。"></textarea>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab on" data-tab="transcript" role="tab" aria-selected="true">文字起こし</button>
+        <button class="tab" data-tab="summary" role="tab" aria-selected="false">要約</button>
+      </div>
+
+      <div class="pane" id="transcriptPane">
+        <div class="transcript">
+          <div class="actions">
+            <button id="transcriptRedo"><svg class="icon" data-icon="redo"></svg>作り直す</button>
+            <button id="transcriptCopy"><svg class="icon" data-icon="copy"></svg>テキストでコピー</button>
+            <span class="sub" id="transcriptMade"></span>
+          </div>
+          <div id="transcriptRows"></div>
+        </div>
+      </div>
+      <div class="pane" id="summaryPane" hidden>
+        <div class="summary" id="summary"></div>
+      </div>
+    </section>
+
+    <section class="view empty" id="emptyView">
+      <p>記録を選ぶか、新しく録音してください</p>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="settingsModal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="settingsHead">
+    <h2 id="settingsHead">設定</h2>
+    <div>
+      <div class="field-head">
+        <label for="apiKey">Gemini の API キー</label>
+        <button type="button" class="help" aria-label="API キーの説明" aria-describedby="apiKeyTip"><svg class="icon" data-icon="help"></svg></button>
+        <span class="tip" role="tooltip" id="apiKeyTip">Google AI Studio で発行したキーです。このアプリのデータフォルダにだけ保存され、記録には含まれません。入れ直すと<span class="nowrap">置き換わります。</span></span>
+      </div>
+      <div class="key-row">
+        <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="設定済み">
+        <button id="apiKeySave" disabled>更新</button>
+      </div>
+    </div>
+    <div>
+      <div class="field-head">
+        <label for="modelSelect">モデル</label>
+        <button type="button" class="help" aria-label="モデルの説明" aria-describedby="modelTip"><svg class="icon" data-icon="help"></svg></button>
+        <span class="tip" role="tooltip" id="modelTip">文字起こしと要約に使う Gemini のモデルです。混雑や利用上限で失敗したときは、自動で別のモデルに切り替えます。</span>
+      </div>
+      <select id="modelSelect"></select>
+    </div>
+    <div>
+      <div class="field-head">
+        <label for="segmentSeconds">区間の長さ</label>
+        <button type="button" class="help" aria-label="区間の長さの説明" aria-describedby="segmentSecondsTip"><svg class="icon" data-icon="help"></svg></button>
+        <span class="tip" role="tooltip" id="segmentSecondsTip">録音をこの長さごとに区切って文字起こしに送ります。長いほど送る回数が減りますが、録音中の文字が画面に出るまでの遅れも<span class="nowrap">長くなります。</span></span>
+      </div>
+      <!-- The range is the one verba/config.py keeps segment_seconds within. -->
+      <div class="unit"><input id="segmentSeconds" type="number" min="20" max="180" step="10"><span>秒</span></div>
+    </div>
+    <div>
+      <div class="field-head">
+        <span class="label">今日の利用回数</span>
+        <button type="button" class="help" aria-label="今日の利用回数の説明" aria-describedby="usageTip"><svg class="icon" data-icon="help"></svg></button>
+        <span class="tip" role="tooltip" id="usageTip">このアプリが今日 Gemini に送った回数です（Google は残りの回数を教えないので、アプリが自分で数えます。同じキーをほかで使った分は入りません）。区間 1 つ、固有名詞の直し、要約が、それぞれ 1 回になります。上限は、一度達したときに分かります。回数は毎日、日本時間の夕方に<span class="nowrap">戻ります。</span></span>
+      </div>
+      <div class="usage" id="usage"></div>
+      <a class="external" href="https://ai.dev/rate-limit" target="_blank" rel="noopener">Google の画面で上限を確かめる</a>
+    </div>
+    <div>
+      <span class="label">保存先</span>
+      <div class="path" id="sessionsDir"></div>
+    </div>
+    <div class="actions"><button id="settingsClose">閉じる</button></div>
+  </div>
+</div>
+
+<div class="modal" id="askModal" hidden>
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="askHead" aria-describedby="askBody">
+    <h2 id="askHead"></h2>
+    <p id="askBody"></p>
+    <div class="actions">
+      <button id="askCancel"></button>
+      <button class="primary" id="askOk"></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

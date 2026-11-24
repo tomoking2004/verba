@@ -1,0 +1,476 @@
+/* Verba — on a jet-black ground, pearl white (me) and gold (the other side, primary actions, serif names and headings). Vermilion only while recording. Every value is defined here; the rules below only refer to them. The exceptions are the breakpoints (@media cannot read a custom property) and the constants that draw a shape or a structure (0, 1, 50%, 100%, 45deg and the like). */
+:root {
+  /* Ground and surfaces: lighter from the bottom up, side → bg → surface → raised */
+  --side: #0d0d10;
+  --bg: #131316;
+  --surface: #1b1b20;
+  --raised: #24242a;
+  --line: #2c2c33;
+  --edge: #77736b;
+  --scrim: rgb(5 5 7 / .84);
+  --select: #47443d;
+  /* Secondary buttons: set off from the ground by the lightness of their face, not by a line (light borders are for input fields and notices only) */
+  --button: #2a2a31;
+  --button-hi: #34343c;
+  --button-lo: #222228;
+  --button-edge: #42424b;
+
+  /* Text: three steps of pearl white, and a highlight */
+  --ink: #f2eee6;
+  --ink-2: #bdb7ac;
+  --ink-3: #948e84;
+  --pearl-hi: #fbf8f1;
+
+  /* Gold: the three steps of the icon's gold (lightest first), and the gilt made from them */
+  --gold-hi: #f0d6a0;
+  --gold: #d8b46c;
+  --gold-lo: #b9964f;
+  /* Gilt: a streak of light on the top edge, sinking downward (a flat fill or a faint gradient reads as dull ochre) */
+  --gilt: linear-gradient(#ecd08f, #c39a4f 55%, #a27a32);
+  --gilt-edge: inset 0 1px 0 rgb(255 244 214 / .5), inset 0 -1px 0 rgb(80 55 15 / .35);
+
+  /* Colours with a meaning */
+  --me: var(--ink);
+  --other: var(--gold);
+  --rec: #e0583c;
+  --on-rec: var(--bg);
+
+  /* Typefaces */
+  --serif: "Yu Mincho", "YuMincho", "游明朝", serif;
+  --sans: "Yu Gothic UI", "Yu Gothic", "游ゴシック", "Meiryo", sans-serif;
+  --mono: "Cascadia Mono", "Consolas", "Yu Gothic UI", monospace;
+  /* Text to read (transcript, summary, memo) is set in Yu Gothic, whose kana are wide. Controls keep the condensed UI face. */
+  --read-font: "Yu Gothic", "游ゴシック", "Yu Gothic UI", "Meiryo", sans-serif;
+  --read-weight: 500;
+  --w-regular: 400;
+  --w-bold: 600;
+
+  /* Type sizes: fine steps around body text, a big jump to headings */
+  --fs-1: .75rem;
+  --fs-2: .875rem;
+  --fs-3: 1rem;
+  --fs-4: 1.125rem;
+  --fs-5: 1.5rem;
+  --fs-6: 2rem;
+  --lh-tight: 1;
+  --lh-head: 1.3;
+  --lh-ui: 1.5;
+  --lh-body: 1.85;
+  --track-head: .04em;
+  --indent: calc(1.25 * var(--fs-3));
+
+  /* Spacing */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+
+  /* Lines and shapes */
+  --hair: 1px;
+  --stroke: 2px;
+  --icon-stroke: 1.5px;
+  --r-ctl: 10px;
+  --r-panel: calc(var(--r-ctl) + var(--s2));
+  --r-pill: 999px;
+  --ctl-h: 36px;
+  --ctl-h-lg: 48px;
+  --icon-sm: 12px;
+  --icon: 16px;
+  --help: 24px;
+  --tip-w: 24rem;
+  --dot: 8px;
+  --chevron: 5px;
+  --logo: 28px;
+  --meter-h: 4px;
+  --toast-h: calc(var(--fs-2) * var(--lh-ui) + 2 * var(--s3));
+  --toast-lane: calc(var(--s5) + var(--toast-h) + var(--s2));
+  --shadow: 0 24px 64px rgb(0 0 0 / .55);
+
+  /* States: a disabled control fades; a filled button lightens when hovered and darkens when pressed */
+  --disabled: .4;
+  --hover-gain: 1.08;
+  --press-gain: .92;
+  --rec-gain: 1.1;
+
+  /* Layers, from the bottom up */
+  --z-tip: 10;
+  --z-modal: 50;
+  --z-toast: 60;
+
+  /* Widths */
+  --side-w: 272px;
+  --side-w-narrow: 216px;
+  --read: 42rem;
+  --form-w: 36rem;
+  --dialog-w: 32rem;
+  --meter-w: 10rem;
+  --num-w: 7rem;
+  --col-time: 4.5rem;
+  --col-speaker: 3rem;
+  --recording-state-w: calc(7 * var(--fs-2));
+  --clock-w: 7ch;
+  --action-w: calc(7.5 * var(--fs-2));
+  --action-pad: var(--s3);
+  --content-w: calc(var(--col-time) + var(--col-speaker) + var(--read) + 2 * var(--s3));
+  --memo-new-min: 2lh;
+  --memo-new-max: 8lh;
+  --memo-session-min: 2lh;
+  --memo-session-max: 4lh;
+
+  /* Motion: a screen fades in; what appears on it rises a little from below; what leaves goes quickly */
+  --dur: 180ms;
+  --dur-in: 260ms;
+  --dur-pulse: 1600ms;
+  --pulse-lo: .45;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --rise: 8px;
+  --press: .97;
+  --dur-meter: 100ms;
+  --dur-spin: 900ms;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-3);
+  line-height: var(--lh-ui);
+  font-synthesis: none;
+  line-break: strict;
+  overflow-wrap: anywhere;
+  text-autospace: normal;
+  text-spacing-trim: trim-start;
+  scrollbar-color: var(--edge) transparent;
+}
+::selection { background: var(--select); color: var(--ink); }
+button, input, select, textarea { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+h1, h2 { color: var(--gold); font-family: var(--serif); font-weight: var(--w-bold); line-height: var(--lh-head); font-feature-settings: "palt"; letter-spacing: var(--track-head); margin: 0; text-wrap: balance; }
+p { margin: 0; text-wrap: pretty; }
+
+/* ---------- Controls ---------- */
+button, .button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  height: var(--ctl-h); padding: 0 var(--s4);
+  border: var(--hair) solid var(--button-edge); border-radius: var(--r-ctl);
+  background: var(--button); color: var(--ink);
+  font-size: var(--fs-2); font-weight: var(--w-bold); white-space: nowrap; cursor: pointer;
+  text-decoration: none;
+  transition: background-color var(--dur), border-color var(--dur), color var(--dur), transform var(--dur) var(--ease);
+}
+button:hover { background: var(--button-hi); }
+button:active { background: var(--button-lo); transform: scale(var(--press)); }
+button:disabled { opacity: var(--disabled); cursor: default; background: var(--button); transform: none; }
+:focus-visible { outline: var(--stroke) solid var(--ink); outline-offset: var(--stroke); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; border-color: var(--ink); }
+
+/* A primary action is filled with the same gilt as the icon's gold line (light on top, sinking below). Its texture tells it apart from gold text (the other side). */
+.primary, .primary:hover, .primary:active, .primary:disabled { background: var(--gilt); border-color: var(--gold-lo); color: var(--bg); box-shadow: var(--gilt-edge); }
+.primary:hover { filter: brightness(var(--hover-gain)); }
+.primary:active { filter: brightness(var(--press-gain)); }
+.pearl { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.pearl:hover { background: var(--pearl-hi); }
+.pearl:active { background: var(--ink-2); }
+.stop { background: var(--rec); border-color: var(--rec); color: var(--on-rec); }
+.stop:hover, .stop:active, .stop:disabled { background: var(--rec); }
+.stop:hover, .stop:active { filter: brightness(var(--rec-gain)); }
+.ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.ghost:hover { background: var(--surface); color: var(--ink); }
+.ghost:active { background: var(--raised); }
+.ghost:disabled { background: transparent; }
+/* Rows, tabs and controls inside text do not shrink when pressed. */
+.item:active, .tab:active, .help:active, .utterance button:active { transform: none; }
+.large { height: var(--ctl-h-lg); padding: 0 var(--s6); font-size: var(--fs-3); }
+
+input, select, textarea {
+  width: 100%; min-width: 0;
+  border: var(--hair) solid var(--edge); border-radius: var(--r-ctl);
+  background: var(--surface); padding: 0 var(--s3);
+  font-size: var(--fs-3);
+}
+input, select { height: var(--ctl-h-lg); }
+textarea { padding: var(--s3); line-height: var(--lh-ui); resize: vertical; }
+input::placeholder, textarea::placeholder { color: var(--ink-3); opacity: 1; }
+select {
+  appearance: none; padding-right: calc(var(--s5) + var(--s3)); cursor: pointer; text-overflow: ellipsis;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%), linear-gradient(-45deg, transparent 50%, var(--ink-2) 50%);
+  background-size: var(--chevron) var(--chevron); background-repeat: no-repeat;
+  background-position: right calc(var(--s5) - var(--stroke)) center, right calc(var(--s5) - var(--stroke) - var(--chevron)) center;
+}
+select option { background: var(--surface); }
+.field-head { position: relative; display: flex; align-items: center; gap: var(--s1); margin-bottom: var(--s2); }
+.field-head label, .field-head .label { margin: 0; }
+.help { width: var(--help); height: var(--help); padding: 0; margin-block: calc((var(--fs-2) * var(--lh-ui) - var(--help)) / 2); border: none; border-radius: var(--r-pill); background: transparent; color: var(--ink-3); }
+.help:hover, .help:active { background: transparent; color: var(--ink); }
+.tip {
+  position: absolute; top: calc(100% + var(--s1)); left: 0; z-index: var(--z-tip);
+  width: max-content; max-width: min(var(--tip-w), 100%); padding: var(--s2) var(--s3);
+  border-radius: var(--r-ctl); background: var(--ink); color: var(--bg); box-shadow: var(--shadow);
+  font-size: var(--fs-2); line-height: var(--lh-ui); text-wrap: pretty;
+  opacity: 0; pointer-events: none; transition: opacity var(--dur);
+}
+.help:hover + .tip, .help:focus + .tip { opacity: 1; }
+/* Checkbox: a checked box is the same pearl white as the focus ring and the line under the selected tab. */
+.check-row { margin: var(--s3) 0 0; }
+.check { display: flex; align-items: center; gap: var(--s2); width: fit-content; color: var(--ink); font-weight: var(--w-regular); cursor: pointer; }
+.check input { appearance: none; flex: none; display: grid; place-items: center; width: var(--icon); height: var(--icon); padding: 0; border-radius: var(--s1); cursor: pointer; }
+.check input:checked { background: var(--ink); border-color: var(--ink); }
+.check input:checked::after { content: ""; width: var(--s1); height: var(--s2); margin-top: calc(-1 * var(--stroke)); border: solid var(--bg); border-width: 0 var(--stroke) var(--stroke) 0; rotate: 45deg; }
+.check input:focus-visible { outline: var(--stroke) solid var(--ink); outline-offset: var(--stroke); }
+label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bold); color: var(--ink-2); margin-bottom: var(--s2); }
+
+.icon { width: var(--icon); height: var(--icon); flex: none; fill: none; stroke: currentColor; stroke-width: var(--icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+/* A row of buttons. What differs by place is added in that place's section. */
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); }
+/* Short messages (tips, toasts, segment rows) break between Japanese phrases, never inside a word. .nowrap keeps the end of a sentence from being left alone on a line. */
+.nowrap { white-space: nowrap; }
+.tip, .toast, .segment p { word-break: auto-phrase; }
+
+.dot { width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--rec); flex: none; display: inline-block; }
+/* While paused, every recording dot turns grey (and stops pulsing, below). */
+.paused .dot { background: var(--ink-3); }
+.spinner { width: var(--icon-sm); height: var(--icon-sm); border: var(--stroke) solid var(--line); border-top-color: var(--ink); border-radius: 50%; flex: none; animation: spin var(--dur-spin) linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Motion ---------- */
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(var(--rise)); } }
+@keyframes pop { from { opacity: 0; transform: translateY(var(--rise)) scale(var(--press)); } }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, var(--rise)); } }
+@keyframes pulse { to { opacity: var(--pulse-lo); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .view, .welcome .form { animation: fade var(--dur-in) ease-out; }
+  .pane { animation: rise var(--dur-in) var(--ease); }
+  .modal { animation: fade var(--dur) ease-out; }
+  .dialog { animation: pop var(--dur-in) var(--ease); }
+  .toast { animation: toast-in var(--dur-in) var(--ease); }
+  /* A newly arrived utterance, and a finished summary */
+  .arrive { animation: rise var(--dur-in) var(--ease); }
+  /* The recording dot pulses slowly (it stops while paused). */
+  .dot { animation: pulse var(--dur-pulse) ease-in-out infinite alternate; }
+  .paused .dot { animation: none; }
+  /* The check mark after a copy appears by drawing its line. */
+  .icon.drawn path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw var(--dur-in) var(--ease) forwards; }
+}
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } * { transition: none !important; } }
+
+/* ---------- Layout ---------- */
+.shell { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); height: 100vh; }
+
+.side { background: var(--side); border-right: var(--hair) solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.side-head { padding: var(--s5) var(--s4) var(--s4); display: grid; gap: var(--s4); border-bottom: var(--hair) solid var(--line); }
+.side-search { padding: var(--s4) var(--s4) 0; }
+.side-search input { height: var(--ctl-h); font-size: var(--fs-2); }
+/* The name links out to the GitHub page (where the latest version is). */
+.brand { display: flex; align-items: center; gap: var(--s3); width: fit-content; font-feature-settings: "palt"; font-family: var(--serif); font-weight: var(--w-bold); font-size: var(--fs-4); letter-spacing: var(--track-head); color: var(--gold); text-decoration: none; border-radius: var(--r-ctl); transition: color var(--dur); }
+.brand:hover { color: var(--gold-hi); }
+.brand img { width: var(--logo); height: var(--logo); display: block; }
+.list { flex: 1; overflow: auto; padding: 0 var(--s2) var(--s4); }
+.group { font-size: var(--fs-1); font-weight: var(--w-bold); color: var(--ink-3); padding: var(--s5) var(--s2) var(--s2); }
+.item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--s2); row-gap: var(--s1); justify-content: stretch; justify-items: start; align-items: center;
+  width: 100%; height: auto; min-width: 0; padding: var(--s3);
+  border: none; border-radius: var(--r-ctl); background: transparent; text-align: left; font-weight: var(--w-regular);
+}
+.item .icon { color: var(--ink-3); }
+.item:hover { background: var(--surface); }
+.item.on { background: var(--raised); }
+.item .title { display: flex; align-items: center; gap: var(--s2); max-width: 100%; font-size: var(--fs-2); font-weight: var(--w-bold); color: var(--ink); }
+.item .title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .sub { grid-column: 2; display: flex; flex-wrap: wrap; column-gap: var(--s3); font-size: var(--fs-1); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.item .sub .failed { color: var(--ink); font-weight: var(--w-bold); }
+/* When the search matched an utterance, the hit is shown in one line. */
+.item .hit { grid-column: 2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-1); color: var(--ink-3); }
+.item .hit mark { background: none; color: var(--ink); font-weight: var(--w-bold); }
+::highlight(found) { background-color: var(--select); color: var(--ink); }
+.live { display: inline-flex; align-items: center; gap: var(--s2); }
+.list .empty { font-size: var(--fs-2); padding: var(--s5) var(--s2); }
+.side-foot { display: flex; justify-content: space-between; padding: var(--s2); border-top: var(--hair) solid var(--line); }
+.side-foot .ghost { padding: 0 var(--s2); }
+
+.main { min-width: 0; min-height: 0; display: flex; }
+.view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: var(--s6) var(--s7) 0; }
+
+/* ---------- Nothing selected ---------- */
+.empty { color: var(--ink-3); }
+.view.empty { align-items: center; justify-content: center; }
+/* At wide widths the sentence sits a little above centre. */
+@media (min-width: 761px) { .view.empty { padding-bottom: var(--s8); } }
+
+/* ---------- New recording ---------- */
+/* The form is centred. Below it, room as tall as the toast lane (its gap from the bottom edge included) is always kept, so that a toast never covers the start button. */
+#newView { display: grid; grid-template-rows: minmax(var(--s6), 1fr) auto minmax(var(--toast-lane), 1fr); overflow: auto; padding-block: 0; }
+#newView .form { grid-row: 2; }
+/* The gaps between fields are tight enough for the default window to show everything down to the start button. */
+.form { width: 100%; max-width: var(--form-w); margin: auto; display: grid; gap: var(--s4); }
+.form h1 { font-size: var(--fs-6); margin-bottom: var(--s4); }
+.memo { resize: none; field-sizing: content; font-family: var(--read-font); font-weight: var(--read-weight); }
+.form .memo { min-height: calc(var(--memo-new-min) + 2 * var(--s3)); max-height: calc(var(--memo-new-max) + 2 * var(--s3)); }
+.form > .primary, .form .actions .primary { justify-self: end; margin-left: auto; }
+.note { display: flex; align-items: center; gap: var(--s4); padding: var(--s3) var(--s4); border: var(--hair) solid var(--edge); border-radius: var(--r-ctl); font-size: var(--fs-2); color: var(--ink); }
+.note p { flex: 1; min-width: 0; }
+
+/* ---------- Session ---------- */
+/* The session view is one column from the title to the body, centred on a wide screen. */
+#sessionView > :not(.pane), .transcript, .summary { width: 100%; max-width: var(--content-w); margin-inline: auto; }
+/* Actions on the session itself sit to the right of the title; the tab row holds only the switch between views. */
+.head { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s5); row-gap: var(--s2); padding-bottom: var(--s5); }
+.head .actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.head .actions button { padding: 0 var(--action-pad); }
+.head .title {
+  height: auto; padding: 0; border: none; border-bottom: var(--hair) solid transparent; border-radius: 0; background: transparent;
+  color: var(--gold); font-family: var(--serif); font-weight: var(--w-bold); font-size: var(--fs-5); line-height: var(--lh-head); letter-spacing: var(--track-head); font-feature-settings: "palt";
+  text-overflow: ellipsis;
+}
+.head .meta { display: flex; flex-wrap: wrap; column-gap: var(--s4); font-size: var(--fs-2); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.head .title:hover { border-bottom-color: var(--line); }
+.head .title:focus-visible { border-bottom-color: var(--gold); }
+
+.recording-bar {
+  display: flex; align-items: center; gap: var(--s5); flex-wrap: wrap;
+  padding: var(--s3) var(--s3) var(--s3) var(--s5); margin-bottom: var(--s5);
+  background: var(--surface); border-radius: calc(var(--r-ctl) + var(--s3));
+}
+.recording-state { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-2); font-weight: var(--w-bold); color: var(--rec); min-width: var(--recording-state-w); }
+.recording-state.paused { color: var(--ink-2); }
+.clock { font-size: var(--fs-6); font-weight: var(--w-bold); line-height: var(--lh-tight); font-variant-numeric: tabular-nums; min-width: var(--clock-w); }
+.paused + .clock { color: var(--ink-2); }
+.meters { display: grid; grid-template-columns: auto var(--meter-w); align-items: center; column-gap: var(--s3); row-gap: var(--s1); font-size: var(--fs-1); font-weight: var(--w-bold); }
+.meters .me { color: var(--me); }
+.meters .other { color: var(--other); }
+.meter { height: var(--meter-h); border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); transition: transform var(--dur-meter) linear; }
+.meter.me i { background: var(--me); }
+.meter.other i { background: var(--other); }
+.recording-bar .actions { flex-wrap: nowrap; margin-left: auto; }
+.recording-bar .actions button { height: var(--ctl-h-lg); min-width: var(--action-w); }
+.recording-bar + .note { margin-block: calc(-1 * var(--s3)) var(--s5); }
+
+/* There is one line under the selected tab, and it slides sideways when the tab changes (app.js puts its position and width in --tab-x and --tab-w). */
+.tabs { position: relative; display: flex; gap: var(--s5); border-bottom: var(--hair) solid var(--line); }
+.tabs::after { content: ""; position: absolute; left: 0; bottom: calc(-1 * var(--hair)); width: var(--tab-w, 0); height: var(--stroke); background: var(--ink); transform: translateX(var(--tab-x, 0)); transition: transform var(--dur-in) var(--ease), width var(--dur-in) var(--ease); }
+.tabs.still::after { transition: none; }
+.tab { height: auto; padding: var(--s3) 0; margin-bottom: calc(-1 * var(--hair)); border: none; border-bottom: var(--stroke) solid transparent; border-radius: 0; background: transparent; color: var(--ink-3); font-size: var(--fs-3); }
+.tab:hover { background: transparent; color: var(--ink); }
+.tab.on { color: var(--ink); }
+
+.player { display: flex; align-items: center; gap: var(--s3); padding-bottom: var(--s4); }
+.play { width: var(--ctl-h); padding: 0; border-radius: 50%; border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.play:hover { background: var(--pearl-hi); }
+.play:active { background: var(--ink-2); }
+.play svg { width: var(--icon-sm); height: var(--icon-sm); fill: currentColor; }
+.play .icon-pause, .playing .play .icon-play { display: none; }
+.playing .play .icon-pause { display: block; }
+.player-time { font-size: var(--fs-2); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+#playerSeek { flex: 1; height: var(--ctl-h); padding: 0; border: none; border-radius: 0; background: transparent; appearance: none; cursor: pointer; }
+#playerSeek::-webkit-slider-runnable-track { height: var(--meter-h); border-radius: var(--r-pill); background: linear-gradient(to right, var(--ink-2) var(--p, 0%), var(--line) var(--p, 0%)); }
+#playerSeek::-webkit-slider-thumb { appearance: none; width: var(--icon-sm); height: var(--icon-sm); margin-top: calc((var(--meter-h) - var(--icon-sm)) / 2); border-radius: 50%; background: var(--ink); }
+#playerSeek:focus-visible { outline: var(--stroke) solid var(--ink); outline-offset: var(--stroke); }
+
+/* The memo is kept to a box of a few lines; a longer one scrolls inside it. */
+.memo-box { padding-bottom: var(--s4); }
+.memo-box .memo { display: block; min-height: calc(var(--memo-session-min) + 2 * var(--s3)); max-height: calc(var(--memo-session-max) + 2 * var(--s3)); }
+
+/* An utterance row lets its "now playing" face stick out a little on both sides, so the pane is widened by as much. */
+.pane { flex: 1; min-height: 0; overflow: auto; margin: 0 calc(-1 * var(--s3)); padding: var(--s4) var(--s3) var(--s7); }
+.utterance { position: relative; display: grid; grid-template-columns: var(--col-time) var(--col-speaker) minmax(0, 1fr); column-gap: var(--s3); align-items: start; padding: var(--s1) var(--s3); margin: var(--s4) calc(-1 * var(--s3)) 0; border-radius: var(--r-ctl); transition: background-color var(--dur); }
+.utterance.continued { margin-top: 0; }
+/* The utterance being played: a face, and a white line on the left (the same pearl white as the play button). */
+.utterance.now { background: var(--surface); }
+.utterance.now::before { content: ""; position: absolute; left: var(--s1); top: var(--s2); bottom: var(--s2); width: var(--stroke); border-radius: var(--r-pill); background: var(--ink); }
+.utterance .time, .utterance .speaker { height: auto; padding: 0; border: none; background: transparent; justify-content: flex-start; font-size: var(--fs-2); line-height: calc(var(--fs-3) * var(--lh-body)); }
+.utterance .time { color: var(--ink-3); font-weight: var(--w-regular); font-variant-numeric: tabular-nums; }
+.utterance .time:hover { color: var(--ink); }
+.utterance .speaker.me { color: var(--me); }
+.utterance .speaker.other { color: var(--other); }
+.utterance .speaker:hover { text-decoration: underline; text-underline-offset: var(--s1); }
+.utterance.continued .speaker { opacity: 0; }
+.utterance.continued:hover .speaker, .utterance.continued .speaker:focus-visible { opacity: 1; }
+.utterance .text { font-family: var(--read-font); font-weight: var(--read-weight); max-width: var(--read); line-height: var(--lh-body); white-space: pre-wrap; text-wrap: pretty; outline: none; border-radius: var(--s1); }
+.utterance .text:focus { box-shadow: 0 0 0 var(--s1) var(--surface), 0 0 0 calc(var(--s1) + var(--hair)) var(--edge); background: var(--surface); }
+
+.segment { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-ctl); background: var(--surface); font-size: var(--fs-2); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.segment p { flex: 1; min-width: 0; }
+.segment b { color: var(--ink); margin-right: var(--s2); }
+.segment.error { border: var(--hair) solid var(--edge); background: transparent; }
+.segment.error p { display: flex; flex-wrap: wrap; column-gap: var(--s2); }
+.segment.error p span { min-width: 0; }
+.spinner.idle { animation: none; border-top-color: var(--line); }
+.pane .empty { padding: var(--s6) 0; }
+
+.pane .actions { padding: var(--s2) 0 var(--s4); }
+.pane .actions .sub { font-size: var(--fs-2); color: var(--ink-3); margin-left: var(--s2); }
+.summary .error { color: var(--ink); font-size: var(--fs-2); padding-bottom: var(--s4); }
+.summary .error b { margin-right: var(--s2); }
+.markdown { font-family: var(--read-font); font-weight: var(--read-weight); max-width: var(--read); line-height: var(--lh-body); text-wrap: pretty; }
+.markdown h2 { font-size: var(--fs-4); margin: var(--s6) 0 var(--s2); }
+.markdown h2:first-child { margin-top: var(--s2); }
+.markdown h3, .markdown h4 { font-size: var(--fs-3); font-weight: var(--w-bold); margin: var(--s4) 0 var(--s1); }
+.markdown ul { margin: 0; padding-left: var(--indent); }
+.markdown li::marker { color: var(--ink-3); }
+.markdown p { margin: var(--s2) 0; }
+.markdown b { font-weight: var(--w-bold); }
+
+/* ---------- Overlays ---------- */
+.modal { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; padding: var(--s5); background: var(--scrim); }
+.dialog { width: min(var(--dialog-w), 100%); max-height: 100%; overflow: auto; display: grid; gap: var(--s4); padding: var(--s5) var(--s6); border-radius: var(--r-panel); background: var(--raised); box-shadow: var(--shadow); }
+.dialog > * { min-width: 0; }
+.dialog h2 { font-size: var(--fs-5); }
+/* The heading of a confirmation dialog is a question, not a title, so it is not gold. */
+[role="alertdialog"] h2 { color: var(--ink); }
+.dialog > p { color: var(--ink-2); line-height: var(--lh-body); }
+.dialog .actions { justify-content: flex-end; padding-top: var(--s2); }
+.key-row { display: flex; gap: var(--s2); }
+.key-row button { height: var(--ctl-h-lg); }
+.usage { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s4); row-gap: var(--s1); font-size: var(--fs-2); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.usage .full { color: var(--ink); font-weight: var(--w-bold); }
+.external { display: inline-block; margin-top: var(--s2); color: var(--ink-2); font-size: var(--fs-2); text-underline-offset: var(--s1); }
+.external:hover { color: var(--ink); }
+.unit { display: flex; align-items: center; gap: var(--s3); color: var(--ink-2); font-size: var(--fs-2); }
+.unit input { width: var(--num-w); }
+/* A path can be any length, so it is kept to one line and its head is cut when it overflows (the tail tells where the sessions are; hovering shows all of it). */
+.path { font-family: var(--mono); font-size: var(--fs-2); color: var(--ink-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: rtl; text-align: left; }
+
+.toast {
+  position: fixed; left: calc(var(--side-w) + (100% - var(--side-w)) / 2); bottom: var(--s5); z-index: var(--z-toast); transform: translateX(-50%);
+  width: max-content; max-width: min(var(--form-w), calc(100% - var(--side-w) - 2 * var(--s5))); padding: var(--s3) var(--s5);
+  border-radius: var(--r-ctl); background: var(--ink); color: var(--bg); box-shadow: var(--shadow);
+  font-size: var(--fs-2); font-weight: var(--w-bold);
+}
+.toast.leaving { opacity: 0; transition: opacity var(--dur); }
+.fatal { min-height: 100vh; display: grid; place-items: center; padding: var(--s6); color: var(--ink-3); text-align: center; }
+
+/* ---------- First run ---------- */
+.welcome { min-height: 100vh; display: grid; padding: var(--s6) var(--s5); overflow: auto; }
+.welcome .brand { font-size: var(--fs-5); margin-bottom: var(--s5); }
+.welcome .brand img { width: var(--s7); height: var(--s7); }
+.form .actions { justify-content: space-between; gap: var(--s4); }
+.form .actions a { color: var(--ink-2); font-size: var(--fs-2); text-underline-offset: var(--s1); }
+.form .actions a:hover { color: var(--ink); }
+.field-error { margin-top: var(--s2); font-size: var(--fs-2); color: var(--ink); }
+
+/* ---------- Narrow widths (down to the minimum window zoomed to 200%) ---------- */
+@media (max-width: 760px) {
+  :root { --side-w: var(--side-w-narrow); --action-pad: var(--s2); }
+  .view { padding: var(--s5) var(--s5) 0; }
+  .head { grid-template-columns: minmax(0, 1fr); }
+  .head .actions { grid-column: auto; grid-row: auto; padding-top: var(--s2); }
+  .utterance { grid-template-columns: var(--col-time) minmax(0, 1fr); }
+  .utterance .text { grid-column: 1 / -1; grid-row: 2; }
+  .clock { font-size: var(--fs-5); }
+}
+/* In a short window the title-to-memo block uses up the room for the body, so the whole session view scrolls. */
+@media (max-height: 560px) {
+  #sessionView { overflow: auto; }
+  .pane { flex: none; overflow: visible; }
+}
