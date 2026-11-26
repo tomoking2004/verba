@@ -58,7 +58,12 @@ def make_server(controller: Controller, port: int, on_quit: Callable[[], None]) 
 
     @route("POST", "/api/recording/start")
     def _start(h, body):
-        return controller.start(body.get("title", ""), body.get("memo", ""))
+        return controller.start(body.get("title", ""), body.get("memo", ""), body.get("muted"))
+
+    @route("POST", "/api/recording/mute")
+    def _mute(h, body):
+        controller.mute(body.get("me"), body.get("other"))
+        return {"ok": True}
 
     @route("POST", "/api/recording/pause")
     def _pause(h, body):
@@ -99,6 +104,15 @@ def make_server(controller: Controller, port: int, on_quit: Callable[[], None]) 
     @route("POST", _SESSION + "/retranscribe")
     def _retranscribe(h, body, sid):
         controller.retranscribe(sid)
+        return {"ok": True}
+
+    @route("POST", _SESSION + "/cancel")
+    def _cancel(h, body, sid):
+        return {"restored": controller.cancel(sid)}
+
+    @route("POST", _SESSION + "/version")
+    def _version(h, body, sid):
+        controller.switch_version(sid, body.get("index"))
         return {"ok": True}
 
     @route("POST", _SESSION + "/fix-names")

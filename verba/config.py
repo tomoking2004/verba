@@ -36,6 +36,11 @@ WEBVIEW_DIR = DATA_DIR / "webview"
 PORT = 47831  # Fixed, so that it also detects a second instance.
 SAMPLE_RATE = 16000  # 16 kHz is enough for speech recognition (Gemini downsamples to 16 kHz anyway).
 
+# Target length (seconds) of a piece when a finished recording is transcribed as a whole (a recording
+# not transcribed live, and every re-transcription). Long, to spend few requests: an hour is six.
+# The two tracks of such a piece, sent as Ogg Vorbis, stay well under the 20 MB a request may carry.
+BATCH_SECONDS = 600
+
 SPEAKER_ME = "自分"
 SPEAKER_OTHER = "相手"
 
@@ -44,10 +49,12 @@ SPEAKER_OTHER = "相手"
 # answer), the others are tried in this order (gemini.py).
 # A pinned version starts returning 404 once it is retired (seen with 2.5 Pro and 2.5 Flash-Lite
 # in 2026-11), so apart from the default only the "latest" aliases, which Google keeps updating, are listed.
+# careful: whether the model is trusted with work where a mistake does harm (the proper-noun fix).
+# The lite model returned wrong replacements (seen with synthetic text).
 MODELS = [
-    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "label": "Gemini 2.5 Flash — 既定（高精度・安定）"},
-    {"id": "gemini-flash-latest", "name": "Gemini Flash 最新版", "label": "Gemini Flash 最新版（自動で更新される）"},
-    {"id": "gemini-flash-lite-latest", "name": "Gemini Flash-Lite 最新版", "label": "Gemini Flash-Lite 最新版 — 高速・軽量"},
+    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "note": "既定（高精度・安定）", "careful": True},
+    {"id": "gemini-flash-latest", "name": "Gemini Flash 最新版", "note": "自動で更新される", "careful": True},
+    {"id": "gemini-flash-lite-latest", "name": "Gemini Flash-Lite 最新版", "note": "高速・軽量", "careful": False},
 ]
 MODEL_IDS = [m["id"] for m in MODELS]
 
@@ -56,6 +63,9 @@ DEFAULT_SETTINGS = {
     # Target length of a segment; the cut is made at a pause in speech after it.
     # Long, because the free tier allows few requests per day.
     "segment_seconds": 180,
+    # Whether a recording is transcribed while it goes on (in segments of segment_seconds). If not,
+    # nothing is sent until it ends, and the whole is then cut into long pieces (BATCH_SECONDS).
+    "live": True,
     "mic": None,  # None = the Windows default device
     "speaker": None,
     "echo_removal": False,  # The other side is heard through speakers: remove its echo in the mic (echo.py)
@@ -68,7 +78,7 @@ def _checked(key: str, value):
     """Return the setting value in a usable form, or raise ValueError or TypeError if it cannot be used."""
     if key == "model" and value not in MODEL_IDS:
         raise ValueError(key)
-    if key == "echo_removal":
+    if key in ("echo_removal", "live"):
         return bool(value)
     if key == "segment_seconds":
         return max(20, min(180, int(value)))

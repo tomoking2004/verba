@@ -5,11 +5,21 @@ One recording is one folder, sessions/<date_time>/:
   transcript.md   for people to read (rebuilt from session.json on every save)
   audio.ogg       the recording (stereo Opus; left = me, right = the other side)
 
-In session.json, a session's status is "recording" or "done". A segment starts as "queued", is
-"working" while Gemini transcribes it, and ends as "done", "silent" (nothing was said, so it was
-not sent) or "error" (a retry puts it back to "queued").
+In session.json, a session's status is "recording" or "done". live tells whether it was transcribed
+while it was recorded; if not, it has no segments until the recording ends and its file is cut.
+A segment starts as "queued", is "working" while Gemini transcribes it, and ends as "done",
+"silent" (nothing was said, so it was not sent), "error" or "stopped" (the user called the
+transcription off). A retry puts the last two back to "queued". model is the id of the model that
+transcribed a segment.
 transcribed_at is when the transcript was completed, and names_error is the reason proper
 nouns could not be fixed.
+A re-transcription keeps the transcript it replaces (segments, utterances, transcribed_at,
+names_error), edits and all, as a version to go back to. The transcript at the top level is the
+one shown, which is the one edited; versions holds the others in the order they were made, and
+version is the place of the shown one among all of them: the full order is versions[:version],
+the shown one, versions[version:]. A re-transcription adds its transcript at the end and shows it.
+redo_from is the place of the version shown when a re-transcription started, until it completes:
+calling it off meanwhile shows that version again.
 """
 
 from __future__ import annotations
@@ -34,6 +44,7 @@ log = logging.getLogger(__name__)
 
 AUDIO_NAME = "audio.ogg"
 UNTITLED = "無題の記録"
+TRANSCRIPT_KEYS = ("segments", "utterances", "transcribed_at", "names_error")  # What each version holds
 HIT_LEAD, HIT_TAIL = 6, 40  # Characters shown before and after a search hit
 _ID_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}(-[0-9]+)?$")
 
@@ -63,7 +74,8 @@ def new_id() -> str:
 
 def new_segment(start: float, end: float) -> dict:
     """Return a segment that is yet to be transcribed."""
-    return {"id": new_id(), "start": round(start, 2), "end": round(end, 2), "status": "queued", "error": None}
+    return {"id": new_id(), "start": round(start, 2), "end": round(end, 2), "status": "queued", "error": None,
+            "model": None}
 
 
 class Store:
@@ -131,11 +143,12 @@ class Store:
         return out
 
     # ---- Writing ----
-    def create(self, title: str, memo: str, echo_removal: bool) -> dict:
+    def create(self, title: str, memo: str, echo_removal: bool, live: bool) -> dict:
         """Create a session that is being recorded.
 
         echo_removal tells whether the other side is heard through speakers. A later
         re-transcription removes echo according to how the session was recorded.
+        live tells whether it is transcribed while it is recorded.
         """
         with self._lock:
             now = datetime.now()
@@ -148,8 +161,9 @@ class Store:
             session = {
                 "id": sid, "title": title.strip(), "memo": memo.strip(),
                 "created_at": now.isoformat(timespec="seconds"), "status": "recording",
-                "duration": 0.0, "echo_removal": echo_removal, "rev": 0,
-                "segments": [], "utterances": [], "transcribed_at": None, "names_error": None, "summary": None,
+                "duration": 0.0, "echo_removal": echo_removal, "live": live, "rev": 0,
+                "segments": [], "utterances": [], "transcribed_at": None, "names_error": None,
+                "versions": [], "version": 0, "redo_from": None, "summary": None,
             }
             self._cache[sid] = session
             self._save(session)
@@ -210,6 +224,19 @@ class Store:
             log.exception("cannot save session %s (will retry on next change)", session["id"])
 
 
+def versions_of(session: dict) -> list[dict]:
+    """Return every version of the transcript, the shown one included, in the order they were made."""
+    v = session["version"]
+    shown = {key: session[key] for key in TRANSCRIPT_KEYS}
+    return session["versions"][:v] + [shown] + session["versions"][v:]
+
+
+def show_version(session: dict, versions: list[dict], index: int) -> None:
+    """Make versions (every version, in order) the session's, showing the one at index."""
+    rest = list(versions)
+    session.update(rest.pop(index), versions=rest, version=index)
+
+
 def _fold(text: str) -> str:
     """Return the form compared in a search: full/half width and upper/lower case are not distinguished."""
     return unicodedata.normalize("NFKC", text).lower()
@@ -244,9 +271,9 @@ def to_markdown(session: dict) -> str:
     for u in session["utterances"]:
         lines.append(f"**[{clock(u['start'])}] {u['speaker']}**　{u['text']}")
         lines.append("")
-    pending = [seg for seg in session["segments"] if seg["status"] in ("queued", "working", "error")]
+    pending = [seg for seg in session["segments"] if seg["status"] in ("queued", "working", "error", "stopped")]
     if pending:
-        lines += [f"> 未完了の区間が {len(pending)} 件あります（アプリから再試行できます）。", ""]
+        lines += [f"> 未完了の区間が {len(pending)} 件あります（アプリから文字起こしを続けられます）。", ""]
     return "\n".join(lines).rstrip() + "\n"
 
 

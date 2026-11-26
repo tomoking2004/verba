@@ -30,7 +30,7 @@
   <aside class="side">
     <div class="side-head">
       <a class="brand" href="https://github.com/tomoking2004/verba" target="_blank" rel="noopener"><img src="icon.svg" alt="">Verba</a>
-      <button id="recordingNew"><svg class="icon" data-icon="plus"></svg><span>新しく録音</span></button>
+      <span class="why"><button id="recordingNew"><svg class="icon" data-icon="plus"></svg><span>新しく録音</span></button><span class="tip" role="tooltip" hidden></span></span>
     </div>
     <div class="side-search">
       <input id="search" type="search" placeholder="記録を検索" aria-label="記録を検索" title="タイトルと文字起こしを探す（Ctrl+F）">
@@ -45,7 +45,18 @@
   <main class="main">
     <section class="view" id="newView" hidden>
       <div class="form">
-        <h1>新しい録音</h1>
+        <!-- The model sits at the right end of the heading's row, as it does at the right end of the tabs' row in a session. -->
+        <div class="form-head">
+          <h1>新しい録音</h1>
+          <div class="model-pick">
+            <button type="button" class="help" aria-label="モデルの説明" aria-describedby="newModelTip"><svg class="icon" data-icon="help"></svg></button>
+            <span class="tip" role="tooltip" id="newModelTip">これから作る文字起こしと要約に使う Gemini のモデルです。混雑や利用上限で使えないときは、別のモデルに切り替えて<span class="nowrap">知らせます。</span></span>
+            <div class="model-ctl">
+              <button type="button" id="newModel" data-model aria-haspopup="menu" aria-expanded="false" aria-controls="newModelMenu"><span></span><svg class="icon" data-icon="chevron"></svg></button>
+              <div class="menu" id="newModelMenu" role="menu" aria-label="モデル" hidden></div>
+            </div>
+          </div>
+        </div>
         <div>
           <label for="newTitle">タイトル</label>
           <input id="newTitle" placeholder="例：A社 一次面接">
@@ -60,7 +71,10 @@
         </div>
         <div>
           <label for="micSelect">自分の声</label>
-          <select id="micSelect"></select>
+          <div class="source">
+            <select id="micSelect"></select>
+            <button type="button" class="mute" id="newMuteMe" data-track="me"></button>
+          </div>
         </div>
         <div>
           <div class="field-head">
@@ -68,14 +82,31 @@
             <button type="button" class="help" aria-label="相手の声の説明" aria-describedby="speakerTip"><svg class="icon" data-icon="help"></svg></button>
             <span class="tip" role="tooltip" id="speakerTip">通話や動画の音を聞いている出力先（イヤホンなど）を選びます。そこから流れる音を相手の声として録ります。</span>
           </div>
-          <select id="speakerSelect"></select>
+          <div class="source">
+            <select id="speakerSelect"></select>
+            <button type="button" class="mute" id="newMuteOther" data-track="other"></button>
+          </div>
           <div class="field-head check-row">
             <label class="check"><input type="checkbox" id="echoCheck">スピーカーで聞く</label>
             <button type="button" class="help" aria-label="スピーカーで聞くの説明" aria-describedby="echoTip"><svg class="icon" data-icon="help"></svg></button>
             <span class="tip" role="tooltip" id="echoTip">イヤホンを使わず、相手の声をスピーカーから出して聞くときに<span class="nowrap">印を付けます。</span>マイクにも入った相手の声を、<span class="nowrap">自分の発話から除きます。</span></span>
           </div>
         </div>
-        <button class="primary large" id="recordingStart">録音を開始</button>
+        <!-- When the recording is transcribed is chosen beside the start. -->
+        <div class="actions">
+          <div class="live-pick">
+            <div class="field-head">
+              <span class="label" id="liveLabel">文字起こし</span>
+              <button type="button" class="help" aria-label="文字起こしの説明" aria-describedby="liveTip"><svg class="icon" data-icon="help"></svg></button>
+              <span class="tip up" role="tooltip" id="liveTip">「録音中に出す」は、録音しながら区間ごとに送り、文字が順に出ます。「録音後にまとめて」は、録音中は何も送らず、停止後に全体を約 <span class="nowrap">10 分</span>ずつ送ります。送る回数は<span class="nowrap">ずっと少なくなります。</span></span>
+            </div>
+            <div class="choice" role="radiogroup" aria-labelledby="liveLabel">
+              <label><input type="radio" name="live" id="liveOn">録音中に出す</label>
+              <label><input type="radio" name="live" id="liveOff">録音後にまとめて</label>
+            </div>
+          </div>
+          <button class="primary large" id="recordingStart">録音を開始</button>
+        </div>
       </div>
     </section>
 
@@ -94,8 +125,8 @@
         <span class="recording-state" id="recordingState"><i class="dot"></i><span id="recordingLabel">録音中</span></span>
         <span class="clock" id="recordingClock">00:00</span>
         <div class="meters">
-          <span class="me">自分</span><span class="meter me"><i id="levelMe"></i></span>
-          <span class="other">相手</span><span class="meter other"><i id="levelOther"></i></span>
+          <button type="button" class="mute me" id="muteMe" data-track="me"></button><span class="meter me"><i id="levelMe"></i></span>
+          <button type="button" class="mute other" id="muteOther" data-track="other"></button><span class="meter other"><i id="levelOther"></i></span>
         </div>
         <div class="actions">
           <button id="recordingPause"><svg class="icon" data-icon="pause"></svg><span>一時停止</span></button>
@@ -126,17 +157,41 @@
         <textarea class="memo" id="memo" placeholder="例：面接官は人事の田中さんと開発部の佐藤さん。&#10;要約では、質問を漏れなく並べてほしい。"></textarea>
       </div>
 
-      <div class="tabs" role="tablist">
-        <button class="tab on" data-tab="transcript" role="tab" aria-selected="true">文字起こし</button>
-        <button class="tab" data-tab="summary" role="tab" aria-selected="false">要約</button>
+      <!-- The model applies to both tabs (the next transcript and the next summary), so it sits in their row. -->
+      <div class="tabs-row">
+        <div class="tabs" role="tablist">
+          <button class="tab on" data-tab="transcript" role="tab" aria-selected="true">文字起こし</button>
+          <button class="tab" data-tab="summary" role="tab" aria-selected="false">要約</button>
+        </div>
+        <div class="model-pick">
+          <button type="button" class="help" aria-label="モデルの説明" aria-describedby="sessionModelTip"><svg class="icon" data-icon="help"></svg></button>
+          <span class="tip" role="tooltip" id="sessionModelTip">これから作る文字起こしと要約に使う Gemini のモデルです。混雑や利用上限で使えないときは、別のモデルに切り替えて<span class="nowrap">知らせます。</span></span>
+          <div class="model-ctl">
+            <button type="button" id="sessionModel" data-model aria-haspopup="menu" aria-expanded="false" aria-controls="sessionModelMenu"><span></span><svg class="icon" data-icon="chevron"></svg></button>
+            <div class="menu" id="sessionModelMenu" role="menu" aria-label="モデル" hidden></div>
+          </div>
+        </div>
       </div>
 
       <div class="pane" id="transcriptPane">
         <div class="transcript">
           <div class="actions">
-            <button id="transcriptRedo"><svg class="icon" data-icon="redo"></svg>作り直す</button>
-            <button id="transcriptCopy"><svg class="icon" data-icon="copy"></svg>テキストでコピー</button>
-            <span class="sub" id="transcriptMade"></span>
+            <!-- A disabled button tells why when hovered: the hover is on the wrapper, because a disabled button gets no mouse events. -->
+            <span class="why"><button class="redo" id="transcriptRedo"><svg class="icon" data-icon="redo"></svg>作り直す</button><span class="tip" role="tooltip" hidden></span></span>
+            <button class="redo" id="transcriptCancel" hidden><svg class="icon" data-icon="cross"></svg>中止</button>
+            <div class="why">
+              <button id="transcriptCopy" aria-haspopup="menu" aria-expanded="false" aria-controls="copyMenu"><svg class="icon" data-icon="copy"></svg>テキストでコピー<svg class="icon" data-icon="chevron"></svg></button><span class="tip" role="tooltip" hidden></span>
+              <div class="menu" id="copyMenu" role="menu" hidden>
+                <button role="menuitem" data-form="labelled">時刻と話者を付けて</button>
+                <button role="menuitem" data-form="plain">本文だけ</button>
+              </div>
+            </div>
+            <span class="versions" id="transcriptVersions" hidden>
+              <span class="why"><button class="step" id="versionPrev" aria-label="前の版"><svg class="icon" data-icon="arrowLeft"></svg></button><span class="tip" role="tooltip" hidden></span></span>
+              <span class="version-at" id="versionAt"></span>
+              <span class="why end"><button class="step" id="versionNext" aria-label="次の版"><svg class="icon" data-icon="arrowRight"></svg></button><span class="tip" role="tooltip" hidden></span></span>
+            </span>
+            <span class="sub made" id="transcriptMade"></span>
           </div>
           <div id="transcriptRows"></div>
         </div>
@@ -163,22 +218,14 @@
       </div>
       <div class="key-row">
         <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="設定済み">
-        <button id="apiKeySave" disabled>更新</button>
+        <span class="why end"><button id="apiKeySave" disabled>更新</button><span class="tip" role="tooltip" hidden></span></span>
       </div>
     </div>
     <div>
       <div class="field-head">
-        <label for="modelSelect">モデル</label>
-        <button type="button" class="help" aria-label="モデルの説明" aria-describedby="modelTip"><svg class="icon" data-icon="help"></svg></button>
-        <span class="tip" role="tooltip" id="modelTip">文字起こしと要約に使う Gemini のモデルです。混雑や利用上限で失敗したときは、自動で別のモデルに切り替えます。</span>
-      </div>
-      <select id="modelSelect"></select>
-    </div>
-    <div>
-      <div class="field-head">
-        <label for="segmentSeconds">区間の長さ</label>
+        <label for="segmentSeconds">録音中に出すときの区間の長さ</label>
         <button type="button" class="help" aria-label="区間の長さの説明" aria-describedby="segmentSecondsTip"><svg class="icon" data-icon="help"></svg></button>
-        <span class="tip" role="tooltip" id="segmentSecondsTip">録音をこの長さごとに区切って文字起こしに送ります。長いほど送る回数が減りますが、録音中の文字が画面に出るまでの遅れも<span class="nowrap">長くなります。</span></span>
+        <span class="tip" role="tooltip" id="segmentSecondsTip">文字起こしを「録音中に出す」ときに、録音をこの長さごとに区切って送ります。長いほど送る回数が減りますが、文字が画面に出るまでの遅れも<span class="nowrap">長くなります。</span></span>
       </div>
       <!-- The range is the one verba/config.py keeps segment_seconds within. -->
       <div class="unit"><input id="segmentSeconds" type="number" min="20" max="180" step="10"><span>秒</span></div>
@@ -187,7 +234,7 @@
       <div class="field-head">
         <span class="label">今日の利用回数</span>
         <button type="button" class="help" aria-label="今日の利用回数の説明" aria-describedby="usageTip"><svg class="icon" data-icon="help"></svg></button>
-        <span class="tip" role="tooltip" id="usageTip">このアプリが今日 Gemini に送った回数です（Google は残りの回数を教えないので、アプリが自分で数えます。同じキーをほかで使った分は入りません）。区間 1 つ、固有名詞の直し、要約が、それぞれ 1 回になります。上限は、一度達したときに分かります。回数は毎日、日本時間の夕方に<span class="nowrap">戻ります。</span></span>
+        <span class="tip" role="tooltip" id="usageTip">このアプリが今日 Gemini から応答を受けた回数です。区間 <span class="nowrap">1 つ</span>、固有名詞の直し、要約が、それぞれ <span class="nowrap">1 回</span>になります（応答が時間内に返らなかった分も数えます）。同じキーをほかで使った分は数えないので、この回数より早く上限に達することがあります。上限は、Google が知らせたときに分かり、それからは回数に並べて出します。回数は、日本時間の <span class="nowrap">17 時</span>（夏時間の間は <span class="nowrap">16 時</span>）に <span class="nowrap">0 に戻ります。</span></span>
       </div>
       <div class="usage" id="usage"></div>
       <a class="external" href="https://ai.dev/rate-limit" target="_blank" rel="noopener">Google の画面で上限を確かめる</a>

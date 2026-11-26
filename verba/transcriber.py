@@ -5,9 +5,9 @@ are passed along as context. The last segment of a finished recording also compl
 transcript: misspelled proper nouns are looked for in the whole of it and fixed, and the time
 is stamped. A recording always ends with a segment (controller.py), so there is always one to do it.
 Audio comes from memory the first time a segment of a live recording is tried, and from the file
-otherwise (retries, a re-transcription, and work left over from the previous run). A failed
-segment's audio is let go at once, so that a recording made while Gemini cannot be reached
-does not pile up in memory.
+otherwise (retries, the pieces a finished recording is cut into, and work left over from the
+previous run). A failed segment's audio is let go at once, so that a recording made while Gemini
+cannot be reached does not pile up in memory.
 """
 
 from __future__ import annotations
@@ -16,13 +16,15 @@ import logging
 import threading
 import time
 from collections import deque
+from typing import Callable
 
 import numpy as np
 
-from .audio import encode_flac, is_silent, read_range
-from .config import SAMPLE_RATE, Settings
+from . import speaker
+from .audio import encode, is_quiet, is_silent, read_range
+from .config import SAMPLE_RATE, SPEAKER_ME, SPEAKER_OTHER, Settings
 from .echo import remove_echo
-from .gemini import Gemini, GeminiError
+from .gemini import Cancelled, Gemini, GeminiError
 from .store import NotFound, Store, new_id, timestamp
 
 log = logging.getLogger(__name__)
@@ -45,6 +47,7 @@ class Transcriber:
         self._audio: dict[tuple[str, str], tuple[np.ndarray, np.ndarray]] = {}
         self._cond = threading.Condition()
         self._busy: tuple[str, str] | None = None
+        self._given_up = False  # The segment in hand was called off: whatever it still yields is thrown away
         self._again: set[tuple[str, str]] = set()  # Submitted while in hand: queued again once let go
         self._stopping = False
         self._thread = threading.Thread(target=self._run, name="transcriber", daemon=True)
@@ -58,7 +61,8 @@ class Transcriber:
                 self._audio[key] = audio
             if key == self._busy:
                 # A retry can arrive after the failure is saved but before the thread lets go of the
-                # segment. Dropping it would leave the segment "queued" for good.
+                # segment (or, called off, while its request is still in flight). Dropping it would
+                # leave the segment "queued" for good.
                 self._again.add(key)
             elif key not in self._queue:
                 self._queue.append(key)
@@ -67,7 +71,23 @@ class Transcriber:
     def pending(self, sid: str) -> int:
         """Return how many segments of a session are queued or being transcribed."""
         with self._cond:
-            return sum(1 for s, _ in self._queue if s == sid) + (1 if self._busy and self._busy[0] == sid else 0)
+            busy = self._busy is not None and self._busy[0] == sid and (not self._given_up or self._busy in self._again)
+            return sum(1 for s, _ in self._queue if s == sid) + (1 if busy else 0)
+
+    def cancel(self, sid: str) -> None:
+        """Take a session's segments off the queue, and make the one in hand give up.
+
+        The request in flight for that one cannot be taken back, but nothing it yields is written
+        from here on: every write of the thread asks, under the store's lock, whether the segment
+        was given up. So a caller that changes the session after this call has the last word.
+        """
+        with self._cond:
+            for key in [key for key in self._queue if key[0] == sid]:
+                self._queue.remove(key)
+                self._audio.pop(key, None)
+            self._again = {key for key in self._again if key[0] != sid}
+            if self._busy is not None and self._busy[0] == sid:
+                self._given_up = True
 
     def stop(self) -> None:
         """Stop the thread once the segment in hand is done."""
@@ -83,8 +103,11 @@ class Transcriber:
                 if self._stopping:
                     return
                 job = self._busy = self._queue.popleft()
+                self._given_up = False
             try:
                 self._process(*job)
+            except Cancelled:
+                self._forget(*job)
             except Exception:  # noqa: BLE001
                 log.exception("transcription crashed for %s", job)
                 self._fail(*job, "文字起こしに失敗しました。もう一度試してください")
@@ -101,7 +124,7 @@ class Transcriber:
         except (NotFound, OSError):
             session = None  # The session was deleted while the segment was queued.
         seg = session and _segment(session, seg_id)
-        if seg is None or seg["status"] in ("done", "silent"):
+        if seg is None or seg["status"] not in ("queued", "working"):  # Gone, done meanwhile, or called off
             self._forget(sid, seg_id)
             return
 
@@ -122,30 +145,38 @@ class Transcriber:
         mic, system = audio
 
         sent = not is_silent(mic, system)
-        utterances = []
+        utterances, model = [], None
         if sent:
             self._set(sid, seg_id, "working")
             context = "\n".join(
                 f"{u['speaker']}: {u['text']}"
                 for u in [u for u in session["utterances"] if u["start"] < seg["start"]][-CONTEXT_UTTERANCES:]
             )
+            # A silent track is not sent (a muted one, or mine while I only listen): with nothing
+            # to mistake it for, every utterance is the other track's speaker.
+            tracks = {who: encode(samples) for who, samples in ((SPEAKER_ME, mic), (SPEAKER_OTHER, system))
+                      if not is_quiet(samples)}
             try:
-                utterances = self.gemini.transcribe(
-                    encode_flac(mic), encode_flac(system), seg["end"] - seg["start"],
-                    title=session["title"], memo=session["memo"], context=context,
+                utterances, model = self.gemini.transcribe(
+                    tracks, seg["end"] - seg["start"], title=session["title"], memo=session["memo"],
+                    context=context, stop=self._called_off,
                 )
             except GeminiError as exc:
                 self._fail(sid, seg_id, str(exc))
                 return
+            if len(tracks) == 2:
+                utterances = speaker.check(utterances, mic, system)
+        if self._called_off():
+            raise Cancelled
 
         last = self._is_last(sid, seg_id)
         fixes, error = self._find_name_fixes(sid, seg_id, utterances, working=sent) if last else ([], None)
 
         def apply(s: dict) -> None:
             target = _segment(s, seg_id)
-            if target is None:
+            if target is None or self._called_off():
                 return
-            # Whatever the segment held before goes, also when it turns out silent (a redo cuts the segments anew).
+            # Whatever the segment held before goes, also when it turns out silent.
             s["utterances"] = [u for u in s["utterances"] if u.get("segment") != seg_id]
             for u in utterances:
                 s["utterances"].append({"id": new_id(), "segment": seg_id, "speaker": u["speaker"],
@@ -159,7 +190,8 @@ class Transcriber:
             if last:
                 apply_name_fixes(s, fixes, error)
                 s["transcribed_at"] = timestamp() if s["utterances"] else None
-            target.update(status="done" if sent else "silent", error=None)
+                s["redo_from"] = None
+            target.update(status="done" if sent else "silent", error=None, model=model)
 
         try:
             self.store.mutate(sid, apply)
@@ -187,7 +219,7 @@ class Transcriber:
             time.sleep(FILE_POLL)
 
     def _is_last(self, sid: str, seg_id: str) -> bool:
-        """Whether recording has ended and no other segment is waiting."""
+        """Whether recording has ended and no other segment is waiting (a failed or stopped one is not)."""
         try:
             s = self.store.get(sid)  # Read again after transcribing: recording may have just stopped.
         except (NotFound, OSError):
@@ -208,16 +240,23 @@ class Transcriber:
         except (NotFound, OSError):
             return [], None
         seg = _segment(s, seg_id)
+        if seg is None:
+            return [], None
         kept = [u for u in s["utterances"] if u.get("segment") != seg_id]
         new = [{**u, "start": seg["start"] + u["start"]} for u in utterances]
         if kept and not working:
             self._set(sid, seg_id, "working")
-        return find_name_fixes(self.gemini, s, sorted(kept + new, key=lambda u: u["start"]))
+        return find_name_fixes(self.gemini, s, sorted(kept + new, key=lambda u: u["start"]), stop=self._called_off)
+
+    def _called_off(self) -> bool:
+        """Whether the segment in hand was given up (asked by the transcription thread only)."""
+        with self._cond:
+            return self._given_up
 
     def _set(self, sid: str, seg_id: str, status: str, error: str | None = None) -> None:
         def apply(s: dict) -> None:
             seg = _segment(s, seg_id)
-            if seg is not None:
+            if seg is not None and not self._called_off():
                 seg.update(status=status, error=error)
 
         try:
@@ -235,16 +274,18 @@ class Transcriber:
             self._audio.pop((sid, seg_id), None)
 
 
-def find_name_fixes(gemini: Gemini, session: dict, utterances: list[dict]) -> tuple[list[tuple[str, str]], str | None]:
+def find_name_fixes(gemini: Gemini, session: dict, utterances: list[dict],
+                    stop: Callable[[], bool] | None = None) -> tuple[list[tuple[str, str]], str | None]:
     """Look for proper-noun replacements in all the utterances.
 
-    Return (replacement pairs, the reason the search failed).
+    Return (replacement pairs, the reason the search failed). stop is passed on to the request
+    (gemini.py), which raises Cancelled once it says so.
     """
     lines = [f"{u['speaker']}: {u['text']}" for u in utterances]
     if not lines:
         return [], None
     try:
-        return gemini.fix_names(lines, session["title"], session["memo"]), None
+        return gemini.fix_names(lines, session["title"], session["memo"], stop=stop), None
     except GeminiError as exc:
         log.warning("name fixes skipped for %s: %s", session["id"], exc)
         return [], str(exc)

@@ -47,21 +47,21 @@ def remove_echo(utterances: list[dict], since: float, until: float,
 
 def strip_echo(mine: str, heard: str, threshold: float) -> str:
     """Remove from mine the parts that overlap heard. Return an empty string if all of it overlaps."""
-    other, _ = _comparable(heard)
+    other, _ = comparable(heard)
     while other:
-        own, index = _comparable(mine)
+        own, index = comparable(mine)
         span = _overlap(own, other, threshold)
         if span is None:
             break
         head = mine[: index[span[0]]]
         tail = mine[index[span[1] - 1] + 1:].lstrip(JOINTS)
         mine = head + tail if tail else head.rstrip(COMMAS)
-        if len(_comparable(mine)[0]) < 2:  # Punctuation or a single character alone means nothing.
+        if len(comparable(mine)[0]) < 2:  # Punctuation or a single character alone means nothing.
             return ""
     return mine
 
 
-def _comparable(text: str) -> tuple[str, list[int]]:
+def comparable(text: str) -> tuple[str, list[int]]:
     """Return the characters to compare, and the original position of each.
 
     Whitespace and punctuation are dropped; full/half width and upper/lower case are unified.

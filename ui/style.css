@@ -75,6 +75,7 @@
   --icon-stroke: 1.5px;
   --r-ctl: 10px;
   --r-panel: calc(var(--r-ctl) + var(--s2));
+  --r-inner: calc(var(--r-ctl) - var(--s1));
   --r-pill: 999px;
   --ctl-h: 36px;
   --ctl-h-lg: 48px;
@@ -104,6 +105,9 @@
   /* Widths */
   --side-w: 272px;
   --side-w-narrow: 216px;
+  --view-pad: var(--s7);
+  --view-pad-narrow: var(--s5);
+  --main-w: calc(100vw - var(--side-w) - 2 * var(--view-pad));
   --read: 42rem;
   --form-w: 36rem;
   --dialog-w: 32rem;
@@ -115,6 +119,9 @@
   --clock-w: 7ch;
   --action-w: calc(7.5 * var(--fs-2));
   --action-pad: var(--s3);
+  --redo-w: calc(4 * var(--fs-2) + var(--icon) + var(--s2) + 2 * var(--s4) + 2 * var(--hair));
+  --segment-text-min: calc(7 * var(--fs-2));
+  --tab-h: calc(var(--fs-3) * var(--lh-ui) + 2 * var(--s3));
   --content-w: calc(var(--col-time) + var(--col-speaker) + var(--read) + 2 * var(--s3));
   --memo-new-min: 2lh;
   --memo-new-max: 8lh;
@@ -177,9 +184,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 .primary, .primary:hover, .primary:active, .primary:disabled { background: var(--gilt); border-color: var(--gold-lo); color: var(--bg); box-shadow: var(--gilt-edge); }
 .primary:hover { filter: brightness(var(--hover-gain)); }
 .primary:active { filter: brightness(var(--press-gain)); }
-.pearl { background: var(--ink); border-color: var(--ink); color: var(--bg); }
-.pearl:hover { background: var(--pearl-hi); }
-.pearl:active { background: var(--ink-2); }
+/* Pearl white fills a button that lifts a hold when pressed: "resume" while paused, and the toggle of a track muted before the start. */
+.pearl, .source .muted { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.pearl:hover, .source .muted:hover { background: var(--pearl-hi); }
+.pearl:active, .source .muted:active { background: var(--ink-2); }
 .stop { background: var(--rec); border-color: var(--rec); color: var(--on-rec); }
 .stop:hover, .stop:active, .stop:disabled { background: var(--rec); }
 .stop:hover, .stop:active { filter: brightness(var(--rec-gain)); }
@@ -188,7 +196,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 .ghost:active { background: var(--raised); }
 .ghost:disabled { background: transparent; }
 /* Rows, tabs and controls inside text do not shrink when pressed. */
-.item:active, .tab:active, .help:active, .utterance button:active { transform: none; }
+.item:active, .tab:active, .help:active, .utterance button:active, .meters .mute:active, .menu button:active { transform: none; }
 .large { height: var(--ctl-h-lg); padding: 0 var(--s6); font-size: var(--fs-3); }
 
 input, select, textarea {
@@ -219,6 +227,35 @@ select option { background: var(--surface); }
   opacity: 0; pointer-events: none; transition: opacity var(--dur);
 }
 .help:hover + .tip, .help:focus + .tip { opacity: 1; }
+/* A tip near the bottom of the window or of a menu opens upwards. */
+.tip.up { top: auto; bottom: calc(100% + var(--s1)); }
+/* Why a button is disabled: a short reason under it, shown while its wrapper is hovered (a disabled button gets no mouse events itself). The models after "ほか" are told the same way. At the right end of a row it opens leftwards. It is as wide as its words, up to the width of the main column. */
+.why { position: relative; display: inline-flex; }
+.why .tip { max-width: min(var(--tip-w), var(--main-w)); }
+.why:hover .tip, .why:has(:focus-visible) .tip { opacity: 1; }
+.why.end .tip { left: auto; right: 0; }
+/* A menu opens under its button. A floating one is put by app.js where the window has room. */
+.menu { position: absolute; top: calc(100% + var(--s1)); left: 0; z-index: var(--z-tip); display: grid; min-width: 100%; padding: var(--s1); border-radius: var(--r-ctl); background: var(--raised); box-shadow: var(--shadow); }
+.menu.float { position: fixed; min-width: 0; max-width: calc(100vw - 2 * var(--s1)); }
+.menu button { justify-content: flex-start; padding: 0 var(--s3); border-color: transparent; border-radius: var(--r-inner); background: transparent; }
+.menu button:hover, .menu button:focus-visible { background: var(--button-hi); }
+.menu button:focus-visible { outline-offset: calc(-1 * var(--stroke)); }
+/* A row that is one of a set to choose from: a name over a note, and a check mark before the one in effect. One that cannot be chosen is dimmed, and tells why (within the width of the menu). */
+.menu .why { display: flex; }
+.menu .why .tip { max-width: 100%; }
+.menu [role="menuitemradio"] { flex: 1; min-width: 0; height: auto; padding: var(--s2) var(--s3); text-align: left; white-space: normal; }
+.menu [role="menuitemradio"] span { min-width: 0; display: grid; }
+.menu [role="menuitemradio"] small { font-size: var(--fs-1); font-weight: var(--w-regular); color: var(--ink-2); }
+.menu [aria-checked="false"] .icon { visibility: hidden; }
+.menu [aria-disabled] { opacity: var(--disabled); cursor: default; }
+.menu [aria-disabled]:hover { background: transparent; }
+/* A choice of two: the chosen side has the face of a button, on a sunken track. The two sides are equally wide; where they are too narrow for their words, the words go on two lines. */
+.choice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s1); min-width: 0; min-height: var(--ctl-h-lg); padding: var(--s1); border-radius: var(--r-ctl); background: var(--surface); }
+.choice label { position: relative; display: grid; place-items: center; margin: 0; padding: var(--s1) var(--action-pad); border: var(--hair) solid transparent; border-radius: var(--r-inner); text-align: center; cursor: pointer; transition: background-color var(--dur), border-color var(--dur), color var(--dur); }
+.choice label:hover { color: var(--ink); }
+.choice label:has(:checked) { border-color: var(--button-edge); background: var(--button); color: var(--ink); }
+.choice input { appearance: none; position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: none; border-radius: inherit; background: transparent; cursor: pointer; }
+.choice input:focus-visible { outline: var(--stroke) solid var(--ink); outline-offset: var(--stroke); }
 /* Checkbox: a checked box is the same pearl white as the focus ring and the line under the selected tab. */
 .check-row { margin: var(--s3) 0 0; }
 .check { display: flex; align-items: center; gap: var(--s2); width: fit-content; color: var(--ink); font-weight: var(--w-regular); cursor: pointer; }
@@ -231,9 +268,9 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 .icon { width: var(--icon); height: var(--icon); flex: none; fill: none; stroke: currentColor; stroke-width: var(--icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
 /* A row of buttons. What differs by place is added in that place's section. */
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); }
-/* Short messages (tips, toasts, segment rows) break between Japanese phrases, never inside a word. .nowrap keeps the end of a sentence from being left alone on a line. */
+/* Short messages (tips, toasts, segment rows, the line telling when an artifact was made, the sides of a choice) break between Japanese phrases, never inside a word. .nowrap keeps the end of a sentence from being left alone on a line. */
 .nowrap { white-space: nowrap; }
-.tip, .toast, .segment p { word-break: auto-phrase; }
+.tip, .toast, .segment p, .made, .choice label { word-break: auto-phrase; }
 
 .dot { width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--rec); flex: none; display: inline-block; }
 /* While paused, every recording dot turns grey (and stops pulsing, below). */
@@ -253,6 +290,7 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
   .pane { animation: rise var(--dur-in) var(--ease); }
   .modal { animation: fade var(--dur) ease-out; }
   .dialog { animation: pop var(--dur-in) var(--ease); }
+  .menu { animation: rise var(--dur) var(--ease); }
   .toast { animation: toast-in var(--dur-in) var(--ease); }
   /* A newly arrived utterance, and a finished summary */
   .arrive { animation: rise var(--dur-in) var(--ease); }
@@ -269,6 +307,7 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 
 .side { background: var(--side); border-right: var(--hair) solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .side-head { padding: var(--s5) var(--s4) var(--s4); display: grid; gap: var(--s4); border-bottom: var(--hair) solid var(--line); }
+.side-head .why > button { flex: 1; }
 .side-search { padding: var(--s4) var(--s4) 0; }
 .side-search input { height: var(--ctl-h); font-size: var(--fs-2); }
 /* The name links out to the GitHub page (where the latest version is). */
@@ -288,18 +327,17 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 .item .title { display: flex; align-items: center; gap: var(--s2); max-width: 100%; font-size: var(--fs-2); font-weight: var(--w-bold); color: var(--ink); }
 .item .title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item .sub { grid-column: 2; display: flex; flex-wrap: wrap; column-gap: var(--s3); font-size: var(--fs-1); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.item .sub .failed { color: var(--ink); font-weight: var(--w-bold); }
+.item .sub .live, .item .sub .failed { color: var(--ink); font-weight: var(--w-bold); }
 /* When the search matched an utterance, the hit is shown in one line. */
 .item .hit { grid-column: 2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-1); color: var(--ink-3); }
 .item .hit mark { background: none; color: var(--ink); font-weight: var(--w-bold); }
 ::highlight(found) { background-color: var(--select); color: var(--ink); }
-.live { display: inline-flex; align-items: center; gap: var(--s2); }
 .list .empty { font-size: var(--fs-2); padding: var(--s5) var(--s2); }
 .side-foot { display: flex; justify-content: space-between; padding: var(--s2); border-top: var(--hair) solid var(--line); }
 .side-foot .ghost { padding: 0 var(--s2); }
 
 .main { min-width: 0; min-height: 0; display: flex; }
-.view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: var(--s6) var(--s7) 0; }
+.view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: var(--s6) var(--view-pad) 0; }
 
 /* ---------- Nothing selected ---------- */
 .empty { color: var(--ink-3); }
@@ -313,10 +351,21 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 #newView .form { grid-row: 2; }
 /* The gaps between fields are tight enough for the default window to show everything down to the start button. */
 .form { width: 100%; max-width: var(--form-w); margin: auto; display: grid; gap: var(--s4); }
-.form h1 { font-size: var(--fs-6); margin-bottom: var(--s4); }
+.form h1 { font-size: var(--fs-6); }
+.form > h1, .form-head { margin-bottom: var(--s4); }
+.form-head { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); }
+.form-head h1 { flex: none; }
 .memo { resize: none; field-sizing: content; font-family: var(--read-font); font-weight: var(--read-weight); }
 .form .memo { min-height: calc(var(--memo-new-min) + 2 * var(--s3)); max-height: calc(var(--memo-new-max) + 2 * var(--s3)); }
-.form > .primary, .form .actions .primary { justify-self: end; margin-left: auto; }
+.form .actions { justify-content: space-between; gap: var(--s4); }
+.form .actions .primary { margin-left: auto; }
+/* A device, and the toggle that mutes its track. */
+.source { display: flex; gap: var(--s2); }
+.source .mute { flex: none; width: var(--ctl-h-lg); height: var(--ctl-h-lg); padding: 0; }
+/* When the recording is transcribed is chosen in the row of the start button. Where that row is too narrow, the choice goes above the button, and narrower still, under its own label. Its tip opens upwards: below it is the bottom of the window. */
+.live-pick { position: relative; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.live-pick .field-head { position: static; margin: 0; }
+.live-pick .choice { flex: 1 1 auto; }
 .note { display: flex; align-items: center; gap: var(--s4); padding: var(--s3) var(--s4); border: var(--hair) solid var(--edge); border-radius: var(--r-ctl); font-size: var(--fs-2); color: var(--ink); }
 .note p { flex: 1; min-width: 0; }
 
@@ -345,19 +394,31 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 .recording-state.paused { color: var(--ink-2); }
 .clock { font-size: var(--fs-6); font-weight: var(--w-bold); line-height: var(--lh-tight); font-variant-numeric: tabular-nums; min-width: var(--clock-w); }
 .paused + .clock { color: var(--ink-2); }
-.meters { display: grid; grid-template-columns: auto var(--meter-w); align-items: center; column-gap: var(--s3); row-gap: var(--s1); font-size: var(--fs-1); font-weight: var(--w-bold); }
+.meters { min-width: 0; display: grid; grid-template-columns: auto minmax(0, var(--meter-w)); align-items: center; column-gap: var(--s3); font-size: var(--fs-1); font-weight: var(--w-bold); }
 .meters .me { color: var(--me); }
 .meters .other { color: var(--other); }
+/* The name of a track is the toggle that mutes it. A muted track is dimmed, its icon struck through, its meter empty. */
+.meters .mute { justify-content: flex-start; gap: var(--s1); height: var(--help); padding: 0; border: none; background: transparent; font-size: inherit; }
+.meters .mute:hover { text-decoration: underline; text-underline-offset: var(--s1); }
+.meters .mute.muted { color: var(--ink-3); }
 .meter { height: var(--meter-h); border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
 .meter i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); transition: transform var(--dur-meter) linear; }
 .meter.me i { background: var(--me); }
 .meter.other i { background: var(--other); }
-.recording-bar .actions { flex-wrap: nowrap; margin-left: auto; }
+.recording-bar .actions { justify-content: flex-end; margin-left: auto; }
 .recording-bar .actions button { height: var(--ctl-h-lg); min-width: var(--action-w); }
 .recording-bar + .note { margin-block: calc(-1 * var(--s3)) var(--s5); }
 
 /* There is one line under the selected tab, and it slides sideways when the tab changes (app.js puts its position and width in --tab-x and --tab-w). */
-.tabs { position: relative; display: flex; gap: var(--s5); border-bottom: var(--hair) solid var(--line); }
+/* The model sits at the right end of the tabs' row (and of the heading's row in a new recording): a button as wide as the name of the model in effect, which opens the menu of models. Where the row is too narrow for it, the model takes a line of its own: above the tabs, which stay on the bottom line (the row wraps upwards, so its start is its bottom), and under the heading. */
+.tabs-row { position: relative; display: flex; flex-wrap: wrap-reverse; align-items: flex-start; column-gap: var(--s4); border-bottom: var(--hair) solid var(--line); }
+.tabs { position: relative; flex: none; display: flex; gap: var(--s5); }
+.model-pick { min-width: 0; margin-left: auto; display: flex; align-items: center; gap: var(--s1); }
+.tabs-row .model-pick { padding-bottom: calc((var(--tab-h) - var(--ctl-h)) / 2); }
+.model-ctl { min-width: 0; display: flex; }
+.model-ctl > button { min-width: 0; padding: 0 var(--action-pad); }
+.model-ctl > button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.model-pick > .tip { left: auto; right: 0; }
 .tabs::after { content: ""; position: absolute; left: 0; bottom: calc(-1 * var(--hair)); width: var(--tab-w, 0); height: var(--stroke); background: var(--ink); transform: translateX(var(--tab-x, 0)); transition: transform var(--dur-in) var(--ease), width var(--dur-in) var(--ease); }
 .tabs.still::after { transition: none; }
 .tab { height: auto; padding: var(--s3) 0; margin-bottom: calc(-1 * var(--hair)); border: none; border-bottom: var(--stroke) solid transparent; border-radius: 0; background: transparent; color: var(--ink-3); font-size: var(--fs-3); }
@@ -399,9 +460,11 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 .utterance .text { font-family: var(--read-font); font-weight: var(--read-weight); max-width: var(--read); line-height: var(--lh-body); white-space: pre-wrap; text-wrap: pretty; outline: none; border-radius: var(--s1); }
 .utterance .text:focus { box-shadow: 0 0 0 var(--s1) var(--surface), 0 0 0 calc(var(--s1) + var(--hair)) var(--edge); background: var(--surface); }
 
-.segment { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-ctl); background: var(--surface); font-size: var(--fs-2); color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.segment p { flex: 1; min-width: 0; }
+.segment { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--s2) var(--s3); margin-top: var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-ctl); background: var(--surface); font-size: var(--fs-2); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.segment p { flex: 1 1 var(--segment-text-min); min-width: 0; }
 .segment b { color: var(--ink); margin-right: var(--s2); }
+/* The reason of a button at the right end of a row keeps inside the row's left edge. */
+.segment .why .tip { max-width: min(var(--tip-w), var(--main-w) - 2 * var(--s4)); }
 .segment.error { border: var(--hair) solid var(--edge); background: transparent; }
 .segment.error p { display: flex; flex-wrap: wrap; column-gap: var(--s2); }
 .segment.error p span { min-width: 0; }
@@ -409,7 +472,21 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 .pane .empty { padding: var(--s6) 0; }
 
 .pane .actions { padding: var(--s2) 0 var(--s4); }
+/* "Redo" and the "stop" that takes its place while the work runs are the same width, so the buttons after them stay where they are. */
+.pane .actions .redo { min-width: var(--redo-w); }
 .pane .actions .sub { font-size: var(--fs-2); color: var(--ink-3); margin-left: var(--s2); }
+/* The versions of the transcript: an arrow on each side of where the shown one stands among them. Its figures are all of one width, so the arrows stay put as the count changes. The reasons of the two arrows open inwards, so that the right one keeps inside a narrow pane. */
+.versions { display: inline-flex; align-items: center; gap: var(--s2); }
+.versions .step { width: var(--ctl-h); padding: 0; }
+.version-at { font-size: var(--fs-2); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* When and by which model the artifact was made: at the right end of the buttons' line, or, when it does not fit there, on a line of its own under them, at the left. */
+/* The empty item takes the room left on the buttons' line (the negative margin cancels the gap before it). */
+.pane .actions::after { content: ""; order: 1; flex: 1 0 0; margin-left: calc(-1 * var(--s2)); }
+.pane .actions .made { order: 2; flex: none; max-width: 100%; margin-left: 0; display: flex; flex-wrap: wrap; column-gap: var(--s4); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pane .actions .made:empty { display: none; }
+/* "ほか" after the model's name: hovering it lists every model that made a part. It is underlined with dots, as something to hover. */
+.made .others { cursor: default; text-decoration: underline dotted; text-underline-offset: var(--s1); }
+.made .others:hover { color: var(--ink); }
 .summary .error { color: var(--ink); font-size: var(--fs-2); padding-bottom: var(--s4); }
 .summary .error b { margin-right: var(--s2); }
 .markdown { font-family: var(--read-font); font-weight: var(--read-weight); max-width: var(--read); line-height: var(--lh-body); text-wrap: pretty; }
@@ -454,15 +531,14 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 .welcome { min-height: 100vh; display: grid; padding: var(--s6) var(--s5); overflow: auto; }
 .welcome .brand { font-size: var(--fs-5); margin-bottom: var(--s5); }
 .welcome .brand img { width: var(--s7); height: var(--s7); }
-.form .actions { justify-content: space-between; gap: var(--s4); }
 .form .actions a { color: var(--ink-2); font-size: var(--fs-2); text-underline-offset: var(--s1); }
 .form .actions a:hover { color: var(--ink); }
 .field-error { margin-top: var(--s2); font-size: var(--fs-2); color: var(--ink); }
 
 /* ---------- Narrow widths (down to the minimum window zoomed to 200%) ---------- */
 @media (max-width: 760px) {
-  :root { --side-w: var(--side-w-narrow); --action-pad: var(--s2); }
-  .view { padding: var(--s5) var(--s5) 0; }
+  :root { --side-w: var(--side-w-narrow); --view-pad: var(--view-pad-narrow); --action-pad: var(--s2); }
+  .view { padding-top: var(--s5); }
   .head { grid-template-columns: minmax(0, 1fr); }
   .head .actions { grid-column: auto; grid-row: auto; padding-top: var(--s2); }
   .utterance { grid-template-columns: var(--col-time) minmax(0, 1fr); }
