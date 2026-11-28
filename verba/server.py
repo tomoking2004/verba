@@ -7,24 +7,28 @@ import logging
 import mimetypes
 import os
 import re
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable
 from urllib.parse import parse_qs, unquote, urlparse
 
-from .config import MODELS, UI_DIR, VERSION
+from .config import MODELS, THEME_IDS, THEMES, UI_DIR, VERSION
 from .controller import Controller
 from .errors import UserError
 from .store import NotFound
+from .themes import icon_svg
 
 log = logging.getLogger(__name__)
 
 _SESSION = r"/api/sessions/([0-9_\-]+)"
 
 
-def make_server(controller: Controller, port: int, on_quit: Callable[[], None]) -> ThreadingHTTPServer:
-    """Build the server. on_quit is called when the UI asks to stop recording and quit."""
+def make_server(controller: Controller, port: int, on_quit: Callable[[], None],
+                on_theme: Callable[[str], None] = lambda theme: None) -> ThreadingHTTPServer:
+    """Build the server. on_quit is called when the UI asks to stop recording and quit, on_theme when the theme changes."""
     routes: list[tuple[str, re.Pattern, Callable]] = []
     host, origin = f"127.0.0.1:{port}", f"http://127.0.0.1:{port}"
+    settings_lock = threading.Lock()  # So the window wears the theme saved last when two changes cross
 
     def route(method: str, pattern: str):
         def register(fn):
@@ -38,8 +42,8 @@ def make_server(controller: Controller, port: int, on_quit: Callable[[], None]) 
 
     @route("GET", "/api/config")
     def _config(h, body):
-        return {"settings": controller.settings.all(), "models": MODELS, "sessions_dir": str(controller.store.root),
-                "version": VERSION, "newer": controller.store.newer()}
+        return {"settings": controller.settings.all(), "models": MODELS, "themes": THEMES,
+                "sessions_dir": str(controller.store.root), "version": VERSION, "newer": controller.store.newer()}
 
     @route("GET", "/api/devices")
     def _devices(h, body):
@@ -51,7 +55,12 @@ def make_server(controller: Controller, port: int, on_quit: Callable[[], None]) 
 
     @route("POST", "/api/settings")
     def _settings(h, body):
-        return controller.settings.update(body)
+        with settings_lock:
+            theme = controller.settings.get("theme")
+            settings = controller.settings.update(body)
+            if settings["theme"] != theme:
+                on_theme(settings["theme"])
+        return settings
 
     @route("POST", "/api/key")
     def _key(h, body):
@@ -161,11 +170,12 @@ def make_server(controller: Controller, port: int, on_quit: Callable[[], None]) 
             # otherwise post to the API, or read the sessions through a host name it points at 127.0.0.1.
             if self.headers.get("Host") != host or self.headers.get("Origin", origin) != origin:
                 return self.send_json(403, {"error": "forbidden"})
-            path = urlparse(self.path).path
+            url = urlparse(self.path)
+            path = url.path
             if not path.startswith("/api/"):
                 if method != "GET":
                     return self.send_json(404, {"error": "not found"})
-                return self.send_static(path)
+                return self.send_static(path, parse_qs(url.query))
             for m, pattern, fn in routes:
                 match = pattern.match(path)
                 if m == method and match:
@@ -191,20 +201,29 @@ def make_server(controller: Controller, port: int, on_quit: Callable[[], None]) 
             return json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
 
         def send_json(self, code: int, obj) -> None:
-            data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
-            self.send_response(code)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(data)
+            self.send_bytes(json.dumps(obj, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8", code)
 
-        def send_static(self, path: str) -> None:
+        def send_static(self, path: str, query: dict) -> None:
             name = unquote(path).lstrip("/") or "index.html"
+            theme = controller.settings.get("theme")
+            if name == "index.html":  # The page is painted in the theme from the first frame.
+                page = (UI_DIR / name).read_text(encoding="utf-8").replace("<html ", f'<html data-theme="{theme}" ', 1)
+                return self.send_bytes(page.encode("utf-8"), "text/html; charset=utf-8")
+            if name == "icon.svg":  # In the theme asked for (the choices in the settings), or the current one.
+                asked = query.get("theme", [theme])[0]
+                return self.send_bytes(icon_svg(asked if asked in THEME_IDS else theme).encode("utf-8"), "image/svg+xml")
             target = (UI_DIR / name).resolve()
             if UI_DIR.resolve() not in target.parents or not target.is_file():
                 return self.send_json(404, {"error": "not found"})
             self.send_file(target, mimetypes.guess_type(target.name)[0] or "application/octet-stream")
+
+        def send_bytes(self, data: bytes, content_type: str, code: int = 200) -> None:
+            self.send_response(code)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
 
         def send_file(self, path, content_type: str) -> None:
             """Send a file, honouring Range requests (needed to seek in the audio)."""

@@ -28,6 +28,11 @@
   /* Gilt: a streak of light on the top edge, sinking downward (a flat fill or a faint gradient reads as dull ochre) */
   --gilt: linear-gradient(#ecd08f, #c39a4f 55%, #a27a32);
   --gilt-edge: inset 0 1px 0 rgb(255 244 214 / .5), inset 0 -1px 0 rgb(80 55 15 / .35);
+  /* The icon's ground and gold line, top and bottom (its rim is --gold-hi). verba/themes.py dresses ui/icon.svg in them. */
+  --icon-ground-a: #26262b;
+  --icon-ground-b: #0c0c0f;
+  --icon-metal-a: #f6dfa6;
+  --icon-metal-b: #b2832f;
 
   /* Colours with a meaning */
   --me: var(--ink);
@@ -86,6 +91,7 @@
   --dot: 8px;
   --chevron: 5px;
   --logo: 28px;
+  --swatch: 52px;
   --meter-h: 4px;
   --toast-h: calc(var(--fs-2) * var(--lh-ui) + 2 * var(--s3));
   --toast-lane: calc(var(--s5) + var(--toast-h) + var(--s2));
@@ -140,6 +146,38 @@
   --dur-spin: 900ms;
 
   color-scheme: dark;
+}
+
+/* Colour themes (THEMES in verba/config.py). Each changes the ground and the metal together, and keeps the meaning of every colour: pearl white is me, the metal is the other side and the primary actions, vermilion is recording. The metal stays as far from pearl white as gold is, so the two sides stay apart. */
+:root[data-theme="jet-rose"] {
+  --select: #453738;
+  --gold-hi: #f4d0c2; --gold: #dda18e; --gold-lo: #ba7a69; --gilt: linear-gradient(#f1c6b4, #c98a77 55%, #a0604f);
+  --gilt-edge: inset 0 1px 0 rgb(255 234 224 / .5), inset 0 -1px 0 rgb(85 35 25 / .35);
+  --icon-metal-a: #f8d8ca; --icon-metal-b: #b06a57;
+}
+:root[data-theme="navy-gold"] {
+  --side: #090c14; --bg: #0d111c; --surface: #121929; --raised: #182136; --line: #1d2842;
+  --button: #1c273f; --button-hi: #232f4d; --button-lo: #171f33; --button-edge: #2c3c61; --select: #3b3b3c;
+  --icon-ground-a: #192238; --icon-ground-b: #080b13;
+}
+:root[data-theme="green-gold"] {
+  --side: #0a1310; --bg: #0e1b16; --surface: #152620; --raised: #1b332a; --line: #213e33;
+  --button: #203b31; --button-hi: #27493c; --button-lo: #1a3028; --button-edge: #315c4c; --select: #3e4932;
+  --icon-ground-a: #1c352c; --icon-ground-b: #09120f;
+}
+:root[data-theme="bordeaux-rose"] {
+  --side: #120b0d; --bg: #191012; --surface: #24171a; --raised: #301e23; --line: #3a252a;
+  --button: #382328; --button-hi: #442c32; --button-lo: #2d1d21; --button-edge: #56373f; --select: #4e3232;
+  --gold-hi: #f4d0c2; --gold: #dda18e; --gold-lo: #ba7a69; --gilt: linear-gradient(#f1c6b4, #c98a77 55%, #a0604f);
+  --gilt-edge: inset 0 1px 0 rgb(255 234 224 / .5), inset 0 -1px 0 rgb(85 35 25 / .35);
+  --icon-ground-a: #312024; --icon-ground-b: #100b0c; --icon-metal-a: #f8d8ca; --icon-metal-b: #b06a57;
+}
+:root[data-theme="violet-champagne"] {
+  --side: #0f0b12; --bg: #150f1a; --surface: #1e1625; --raised: #281d31; --line: #30233c;
+  --button: #2e2239; --button-hi: #392947; --button-lo: #261b2f; --button-edge: #483459; --select: #47383d;
+  --gold-hi: #f0dfbf; --gold: #d6b98a; --gold-lo: #b39869; --gilt: linear-gradient(#ebd7ad, #c4a674 55%, #9f824f);
+  --gilt-edge: inset 0 1px 0 rgb(255 248 230 / .5), inset 0 -1px 0 rgb(70 55 30 / .35);
+  --icon-ground-a: #291e33; --icon-ground-b: #0e0a11; --icon-metal-a: #f4e4c3; --icon-metal-b: #a3844f;
 }
 
 * { box-sizing: border-box; }
@@ -516,6 +554,13 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 .external:hover { color: var(--ink); }
 .unit { display: flex; align-items: center; gap: var(--s3); color: var(--ink-2); font-size: var(--fs-2); }
 .unit input { width: var(--num-w); }
+/* The themes: each the icon in its colours. The one worn is ringed in the metal (the focus ring stays pearl white). */
+.theme-name { margin-left: var(--s2); font-size: var(--fs-2); color: var(--ink-3); }
+.themes { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.theme { width: var(--swatch); height: var(--swatch); padding: var(--s1); border: var(--stroke) solid transparent; border-radius: var(--r-panel); background: transparent; }
+.theme:hover { background: var(--button); }
+.theme[aria-pressed="true"] { border-color: var(--gold); }
+.theme img { width: 100%; height: 100%; display: block; }
 /* A path can be any length, so it is kept to one line and its head is cut when it overflows (the tail tells where the sessions are; hovering shows all of it). */
 .path { font-family: var(--mono); font-size: var(--fs-2); color: var(--ink-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: rtl; text-align: left; }
 

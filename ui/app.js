@@ -284,6 +284,32 @@ async function saveSettings(changes) {
   try { config.settings = await api("POST", "/api/settings", changes); } catch (e) { fail(e); }
 }
 
+/* ---------- Theme ---------- */
+/* A theme is a ground and a metal, worn by the screen and the icon together. Each choice in the settings is the icon in its theme; the name of the one pointed at, or else of the one worn, stands by the heading. */
+function buildThemes() {
+  $("themes").innerHTML = config.themes.map((t) =>
+    `<button type="button" class="theme" data-theme="${t.id}" aria-label="${esc(t.name)}"><img src="icon.svg?theme=${t.id}" alt=""></button>`).join("");
+}
+const themeName = (id) => { $("themeName").textContent = config.themes.find((t) => t.id === id).name; };
+function showTheme(id) {
+  document.documentElement.dataset.theme = id;
+  for (const img of document.querySelectorAll(".brand img")) img.src = `icon.svg?theme=${id}`;
+  document.querySelector('link[rel="icon"]').href = `icon.svg?theme=${id}`;
+  for (const b of $("themes").children) b.setAttribute("aria-pressed", b.dataset.theme === id);
+  themeName(id);
+}
+let themeAsked = 0;  // Count of the choices made, so that only the answer to the last one is shown
+$("themes").addEventListener("click", async (e) => {
+  const b = e.target.closest(".theme");
+  if (!b) return;
+  const asked = ++themeAsked;
+  showTheme(b.dataset.theme);  // At once; the title bar and the window's icon follow when the server has it.
+  await saveSettings({ theme: b.dataset.theme });
+  if (asked === themeAsked) showTheme(config.settings.theme);  // The one saved (the old one, if saving failed)
+});
+for (const type of ["mouseover", "focusin"]) $("themes").addEventListener(type, (e) => { const b = e.target.closest(".theme"); if (b) themeName(b.dataset.theme); });
+for (const type of ["mouseleave", "focusout"]) $("themes").addEventListener(type, () => themeName(config.settings.theme));
+
 /* ---------- Model ---------- */
 /* The two fields (new recording, session) show the one setting, as the name of the model in effect: the chosen one, or the one that stands in for it while it is out of quota. Their menus list every model. One out of quota cannot be chosen, and tells why when hovered or focused. */
 let noticeSeen;  // seq of the last switch of model told. Unset until the first poll, whose notice is old news.
@@ -824,6 +850,7 @@ $("sessionDelete").addEventListener("click", async () => {
 /* ---------- Settings ---------- */
 function openSettings() {
   $("segmentSeconds").value = config.settings.segment_seconds;
+  showTheme(config.settings.theme);
   // The rows are laid out at once and the counts filled in when they arrive, so the dialog does not grow after it has appeared.
   const usageRows = (count) => config.models.map((m) => `<span>${esc(m.name)}</span>${count(m)}`).join("");
   $("usage").innerHTML = usageRows(() => "<span></span>");
@@ -957,6 +984,7 @@ setInterval(async () => {
   let hasKey;
   try {
     config = await api("GET", "/api/config");
+    buildThemes();
     devices = await api("GET", "/api/devices");
     hasKey = (await api("GET", "/api/state")).has_key;
   } catch (e) { document.body.innerHTML = `<p class="fatal">${esc(e.message)}</p>`; return; }

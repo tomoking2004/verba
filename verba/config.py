@@ -59,8 +59,21 @@ MODELS = [
 ]
 MODEL_IDS = [m["id"] for m in MODELS]
 
+# Colour themes: a ground and a metal, chosen together, for the screen and the icon alike. Their
+# colours are in ui/style.css (themes.py reads them from there). The first is the default.
+THEMES = [
+    {"id": "jet-gold", "name": "漆黒×金"},
+    {"id": "jet-rose", "name": "漆黒×ローズゴールド"},
+    {"id": "navy-gold", "name": "濃紺×金"},
+    {"id": "green-gold", "name": "深緑×金"},
+    {"id": "bordeaux-rose", "name": "ボルドー×ローズゴールド"},
+    {"id": "violet-champagne", "name": "紫紺×シャンパンゴールド"},
+]
+THEME_IDS = [t["id"] for t in THEMES]
+
 DEFAULT_SETTINGS = {
     "model": MODELS[0]["id"],
+    "theme": THEMES[0]["id"],
     # Target length of a segment; the cut is made at a pause in speech after it.
     # Long, because the free tier allows few requests per day.
     "segment_seconds": 180,
@@ -77,7 +90,7 @@ DEFAULT_SETTINGS = {
 
 def _checked(key: str, value):
     """Return the setting value in a usable form, or raise ValueError or TypeError if it cannot be used."""
-    if key == "model" and value not in MODEL_IDS:
+    if (key == "model" and value not in MODEL_IDS) or (key == "theme" and value not in THEME_IDS):
         raise ValueError(key)
     if key in ("echo_removal", "live"):
         return bool(value)

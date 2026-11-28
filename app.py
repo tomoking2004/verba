@@ -19,6 +19,7 @@ from logging.handlers import RotatingFileHandler
 
 sys.dont_write_bytecode = True  # Running from source must not leave __pycache__ in the repository.
 from verba.config import APP_NAME, LOG_PATH, PORT, VERSION, WEBVIEW_DIR  # noqa: E402
+from verba.themes import icon_path, palette  # noqa: E402
 
 log = logging.getLogger("app")
 
@@ -71,25 +72,67 @@ def window_size() -> tuple[int, int]:
     return round(width), round(width / GOLDEN)
 
 
-# Colours of the title bar and the window border (a COLORREF is 0x00BBGGRR). They match
-# --side (background) and --ink-2 (text) in ui/style.css.
-CAPTION_COLOR, CAPTION_TEXT = 0x00100D0D, 0x00ACB7BD
-BACKGROUND = "#131316"  # What the window shows until the page paints: --bg in ui/style.css
 CLOSE_WAIT = 3  # Seconds the closing waits for the page to save its edits and ask to quit
 
 
-def darken_title_bar(window) -> None:
-    """Make the title bar the same black as the UI.
+def colorref(colour: str) -> int:
+    """Return the COLORREF (0x00BBGGRR) of a #rrggbb colour."""
+    r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+    return r | g << 8 | b << 16
 
-    Windows 11 takes the exact colour; Windows 10 gets a dark title bar.
+
+_LoadImage = ctypes.windll.user32.LoadImageW
+_LoadImage.restype = ctypes.wintypes.HANDLE
+_LoadImage.argtypes = [ctypes.wintypes.HINSTANCE, ctypes.wintypes.LPCWSTR, ctypes.wintypes.UINT,
+                       ctypes.c_int, ctypes.c_int, ctypes.wintypes.UINT]
+_SendMessage = ctypes.windll.user32.SendMessageW
+_SendMessage.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.UINT, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM]
+_DestroyIcon = ctypes.windll.user32.DestroyIcon
+_DestroyIcon.argtypes = [ctypes.wintypes.HICON]
+
+
+class WindowDress:
+    """The theme worn by the window: on the title bar and the border, and as the icon of the window and its taskbar button.
+
+    The title bar takes --side, its text --ink-2. Windows 11 takes the exact colour; Windows 10 gets a dark title bar.
+    The icon of the exe file itself and of a pinned shortcut stays the default one.
     """
-    try:
-        hwnd = ctypes.wintypes.HWND(window.native.Handle.ToInt64())
-        # 20: DWMWA_USE_IMMERSIVE_DARK_MODE, 34: BORDER_COLOR, 35: CAPTION_COLOR, 36: TEXT_COLOR
-        for attribute, value in ((20, 1), (34, CAPTION_COLOR), (35, CAPTION_COLOR), (36, CAPTION_TEXT)):
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(ctypes.c_int(value)), 4)
-    except Exception:  # noqa: BLE001  Purely cosmetic, so a failure does not stop the launch.
-        log.exception("cannot darken the title bar")
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()  # The theme can change in two requests at once.
+        self._hwnd = None
+        # The icons loaded here, by WM_SETICON type. The window's first ones belong to its WinForms form and are left to it.
+        self._icons: dict[int, int] = {}
+
+    def attach(self, window) -> None:
+        """Take the handle of the window. Called on the window's own thread: a WinForms control is read there only."""
+        try:
+            self._hwnd = ctypes.wintypes.HWND(window.native.Handle.ToInt64())
+        except Exception:  # noqa: BLE001  Purely cosmetic, so a failure does not stop the launch.
+            log.exception("cannot take the window's handle")
+
+    def wear(self, theme: str) -> None:
+        """Dress the window in a theme. Before the window is attached, there is nothing to dress."""
+        with self._lock:
+            if self._hwnd is None:
+                return
+            try:
+                colours = palette(theme)
+                caption, text = colorref(colours["side"]), colorref(colours["ink-2"])
+                # 20: DWMWA_USE_IMMERSIVE_DARK_MODE, 34: BORDER_COLOR, 35: CAPTION_COLOR, 36: TEXT_COLOR
+                for attribute, value in ((20, 1), (34, caption), (35, caption), (36, text)):
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(self._hwnd, attribute, ctypes.byref(ctypes.c_int(value)), 4)
+                # WM_SETICON (0x80) with ICON_BIG (1) at SM_CXICON (11), and ICON_SMALL (0) at SM_CXSMICON (49)
+                for which, metric in ((1, 11), (0, 49)):
+                    size = ctypes.windll.user32.GetSystemMetrics(metric)
+                    icon = _LoadImage(None, str(icon_path(theme)), 1, size, size, 0x10)  # IMAGE_ICON, LR_LOADFROMFILE
+                    if icon:
+                        _SendMessage(self._hwnd, 0x80, which, icon)
+                        if which in self._icons:  # The one it replaced, no longer used by the window
+                            _DestroyIcon(self._icons[which])
+                        self._icons[which] = icon
+            except Exception:  # noqa: BLE001  Purely cosmetic, so a failure does not stop the app.
+                log.exception("cannot dress the window")
 
 
 def port_in_use() -> bool:
@@ -137,6 +180,7 @@ def main() -> None:
     from verba.server import make_server
 
     controller = Controller()
+    dress = WindowDress()
     window = None
     quitting = threading.Event()
     quit_lock = threading.Lock()
@@ -159,7 +203,7 @@ def main() -> None:
                 threading.Thread(target=window.destroy, daemon=True).start()
 
     try:
-        server = make_server(controller, PORT, on_quit=quit_app)
+        server = make_server(controller, PORT, on_quit=quit_app, on_theme=dress.wear)
     except OSError:  # Nothing answers on the port, yet it cannot be bound (reserved by Windows, for one).
         log.exception("cannot bind port %s", PORT)
         controller.shutdown()
@@ -202,10 +246,17 @@ def main() -> None:
         return False
 
     width, height = window_size()
+    # The background is what the window shows until the page paints.
+    background = palette(controller.settings.get("theme"))["bg"]
     window = webview.create_window(APP_NAME, url, width=width, height=height,
-                                   min_size=(MIN_WIDTH, round(MIN_WIDTH / GOLDEN)), background_color=BACKGROUND)
+                                   min_size=(MIN_WIDTH, round(MIN_WIDTH / GOLDEN)), background_color=background)
     window.events.closing += on_closing
-    window.events.before_show += lambda: darken_title_bar(window)
+
+    def on_before_show() -> None:  # On the window's thread, before it first appears
+        dress.attach(window)
+        dress.wear(controller.settings.get("theme"))
+
+    window.events.before_show += on_before_show
     try:
         # The web view's storage goes in the data folder too; nothing is written on the PC (%APPDATA%).
         webview.start(private_mode=False, storage_path=str(WEBVIEW_DIR))

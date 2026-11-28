@@ -1,6 +1,6 @@
 ﻿# Build Verba into a standalone exe (to distribute and carry around).
 #  1. Create the build venv outside OneDrive (%LOCALAPPDATA%\Verba\build-venv).
-#  2. Install the dependencies and PyInstaller, and make ui\icon.ico from ui\icon.svg.
+#  2. Install the dependencies and PyInstaller, and make the icons (ui\icon.ico and ui\icons\) from ui\icon.svg.
 #  3. Make dist\Verba.exe (this one file runs on a PC without Python).
 $ErrorActionPreference = "Stop"
 $env:PYTHONDONTWRITEBYTECODE = "1"  # The build must not leave __pycache__ in the repository either.
