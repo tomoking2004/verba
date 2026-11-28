@@ -11,7 +11,7 @@ from pathlib import Path
 from .files import write_text
 
 APP_NAME = "Verba"
-VERSION = "0.2.0"  # The one place of the version: the settings dialog, app.log and the exe (build.ps1) read it.
+VERSION = "0.3.0"  # The one place of the version: the settings dialog, app.log and the exe (build.ps1) read it.
 
 # Where the bundled files (the UI) live. In the exe this is the runtime extraction folder.
 BUNDLE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
