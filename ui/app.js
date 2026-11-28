@@ -836,6 +836,7 @@ function openSettings() {
     });
   }).catch(fail);
   $("sessionsDir").innerHTML = `<bdi>${esc(config.sessions_dir)}</bdi>`; $("sessionsDir").title = config.sessions_dir;
+  $("appVersion").textContent = `Verba ${config.version}`;
   $("apiKey").value = ""; showKeySave();
   $("settingsModal").hidden = false;
   $("apiKey").focus();
@@ -969,6 +970,8 @@ async function startApp(linked) {
   $("shell").hidden = false;
   await pollState();
   await loadList();
+  // Sessions written by a later Verba are left out of the list; this says why they are missing.
+  if (config.newer) toast(`${config.newer} 件の記録を開けませんでした。新しい版の Verba で作られています`, true);
   if (live) openSession(live.session);
   else if (sessions.some((s) => s.id === linked)) openSession(linked);
   else if (sessions.length && linked !== "new") showEmpty();

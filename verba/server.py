@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable
 from urllib.parse import parse_qs, unquote, urlparse
 
-from .config import MODELS, UI_DIR
+from .config import MODELS, UI_DIR, VERSION
 from .controller import Controller
 from .errors import UserError
 from .store import NotFound
@@ -38,7 +38,8 @@ def make_server(controller: Controller, port: int, on_quit: Callable[[], None]) 
 
     @route("GET", "/api/config")
     def _config(h, body):
-        return {"settings": controller.settings.all(), "models": MODELS, "sessions_dir": str(controller.store.root)}
+        return {"settings": controller.settings.all(), "models": MODELS, "sessions_dir": str(controller.store.root),
+                "version": VERSION, "newer": controller.store.newer()}
 
     @route("GET", "/api/devices")
     def _devices(h, body):

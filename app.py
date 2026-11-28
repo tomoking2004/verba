@@ -18,7 +18,7 @@ import threading
 from logging.handlers import RotatingFileHandler
 
 sys.dont_write_bytecode = True  # Running from source must not leave __pycache__ in the repository.
-from verba.config import APP_NAME, LOG_PATH, PORT, WEBVIEW_DIR  # noqa: E402
+from verba.config import APP_NAME, LOG_PATH, PORT, VERSION, WEBVIEW_DIR  # noqa: E402
 
 log = logging.getLogger("app")
 
@@ -128,6 +128,7 @@ def port_message() -> str:
 def main() -> None:
     """Run the app until its window is closed."""
     setup_logging()
+    log.info("%s %s starting", APP_NAME, VERSION)
     if port_in_use():
         alert(port_message())
         return

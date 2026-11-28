@@ -24,9 +24,32 @@ Write-Host "アイコンを作成しています..."
 & "$venv\Scripts\python.exe" "$PSScriptRoot\make_icon.py"
 if ($LASTEXITCODE -ne 0) { throw "アイコンの作成に失敗しました。" }
 
+# The version shown in the exe's properties, from its one place (VERSION in verba\config.py).
+$found = Select-String -Path "$root\verba\config.py" -Pattern '^VERSION = "(\d+)\.(\d+)\.(\d+)"'
+if (-not $found) { throw "verba\config.py に VERSION が見つかりません。" }
+$parts = $found.Matches[0].Groups[1..3] | ForEach-Object { $_.Value }
+$numbers = $parts -join ", "
+$text = $parts -join "."
+New-Item -ItemType Directory -Force $work | Out-Null
+$versionFile = Join-Path $work "version.txt"
+@"
+VSVersionInfo(
+  ffi=FixedFileInfo(filevers=($numbers, 0), prodvers=($numbers, 0)),
+  kids=[
+    StringFileInfo([StringTable('041104B0', [
+      StringStruct('FileDescription', '$name'),
+      StringStruct('ProductName', '$name'),
+      StringStruct('FileVersion', '$text'),
+      StringStruct('ProductVersion', '$text'),
+      StringStruct('OriginalFilename', '$name.exe')])]),
+    VarFileInfo([VarStruct('Translation', [0x0411, 1200])])
+  ]
+)
+"@ | Set-Content -Encoding utf8 $versionFile
+
 Write-Host "exe を作成しています（数分かかります）..."
 & "$venv\Scripts\python.exe" -m PyInstaller --noconfirm --clean --log-level WARN `
-    --onefile --windowed --name $name --icon "$root\ui\icon.ico" `
+    --onefile --windowed --name $name --icon "$root\ui\icon.ico" --version-file $versionFile `
     --add-data "$root\ui;ui" --collect-data soundcard `
     --distpath "$root\dist" --workpath $work --specpath $work `
     "$root\app.py"

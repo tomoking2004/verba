@@ -507,6 +507,7 @@ label, .label { display: block; font-size: var(--fs-2); font-weight: var(--w-bol
 [role="alertdialog"] h2 { color: var(--ink); }
 .dialog > p { color: var(--ink-2); line-height: var(--lh-body); }
 .dialog .actions { justify-content: flex-end; padding-top: var(--s2); }
+.dialog .version { margin-right: auto; font-size: var(--fs-1); color: var(--ink-3); }
 .key-row { display: flex; gap: var(--s2); }
 .key-row button { height: var(--ctl-h-lg); }
 .usage { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s4); row-gap: var(--s1); font-size: var(--fs-2); color: var(--ink-2); font-variant-numeric: tabular-nums; }

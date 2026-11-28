@@ -1,9 +1,10 @@
 """Storage of sessions.
 
 One recording is one folder, sessions/<date_time>/:
-  session.json    the source of truth (segments, utterances, summary)
-  transcript.md   for people to read (rebuilt from session.json on every save)
-  audio.ogg       the recording (stereo Opus; left = me, right = the other side)
+  session.json            the source of truth (segments, utterances, summary)
+  transcript.md           for people to read (rebuilt from session.json on every save)
+  audio.ogg               the recording (stereo Opus; left = me, right = the other side)
+  session.schema<n>.json  session.json as an older Verba wrote it (shape n), kept when it is brought up to date
 
 In session.json, a session's status is "recording" or "done". live tells whether it was transcribed
 while it was recorded; if not, it has no segments until the recording ends and its file is cut.
@@ -20,6 +21,12 @@ version is the place of the shown one among all of them: the full order is versi
 the shown one, versions[version:]. A re-transcription adds its transcript at the end and shows it.
 redo_from is the place of the version shown when a re-transcription started, until it completes:
 calling it off meanwhile shows that version again.
+
+schema is the number of the shape of session.json. A session in an older shape is brought up to
+date when it is read (UPGRADES), and saved in the current shape once a copy of the old file is kept
+(session.schema<n>.json); the rest of the code reads only the current shape. A session in a newer shape, written by a later Verba, is
+neither opened nor written. Files from before the number was written (v0.1.0 and v0.2.0) have
+none: those without versions are schema 1 (v0.1.0), the others schema 2.
 """
 
 from __future__ import annotations
@@ -54,6 +61,36 @@ class NotFound(UserError):
 
     def __init__(self) -> None:
         super().__init__("記録が見つかりません。記録のフォルダが削除されたか、移されています")
+
+
+class TooNew(UserError):
+    """The session was written by a later Verba, in a shape this one does not know."""
+
+    def __init__(self) -> None:
+        super().__init__("記録を開けませんでした。新しい版の Verba で作られています")
+
+
+# What reading a folder raises when it holds no session, or one edited out of shape
+_UNREADABLE = (NotFound, OSError, ValueError, KeyError, TypeError)
+
+
+def _from_1(session: dict) -> dict:
+    """v0.1.0 → v0.2.0: versions of the transcript, transcription after the recording, the model of each segment."""
+    session.update(live=True, versions=[], version=0, redo_from=None)
+    for seg in session["segments"]:
+        seg.setdefault("model", None)
+    return session
+
+
+SCHEMA = 2
+UPGRADES = {1: _from_1}  # Each takes a session in shape n to shape n + 1.
+
+
+def _schema_of(session: dict) -> int:
+    """Return the number of the shape a session was read in, telling it by the keys in a file that has none."""
+    if "schema" in session:
+        return int(session["schema"])
+    return 2 if "versions" in session else 1
 
 
 def clock(seconds: float) -> str:
@@ -134,7 +171,9 @@ class Store:
                         if hit is None:
                             continue
                         item["hit"] = hit
-                except (NotFound, OSError, ValueError, KeyError, TypeError):  # Not a session, or one edited out of shape
+                except TooNew:  # Told once at startup (newer())
+                    continue
+                except _UNREADABLE:
                     if path.name not in self._unreadable:
                         self._unreadable.add(path.name)
                         log.warning("skip unreadable session %s", path.name)
@@ -159,7 +198,7 @@ class Store:
                 sid = now.strftime("%Y-%m-%d_%H%M%S") + f"-{n}"
             (self.root / sid).mkdir(parents=True)
             session = {
-                "id": sid, "title": title.strip(), "memo": memo.strip(),
+                "schema": SCHEMA, "id": sid, "title": title.strip(), "memo": memo.strip(),
                 "created_at": now.isoformat(timespec="seconds"), "status": "recording",
                 "duration": 0.0, "echo_removal": echo_removal, "live": live, "rev": 0,
                 "segments": [], "utterances": [], "transcribed_at": None, "names_error": None,
@@ -208,11 +247,55 @@ class Store:
             self._cache.pop(sid, None)
             raise NotFound
         if sid not in self._cache:
+            path = folder / "session.json"
             try:
-                self._cache[sid] = json.loads((folder / "session.json").read_text(encoding="utf-8"))
+                session = json.loads(path.read_text(encoding="utf-8"))
             except FileNotFoundError:
                 raise NotFound from None
+            self._cache[sid] = self._upgraded(session, path)
         return self._cache[sid]
+
+    def _upgraded(self, session: dict, path: Path) -> dict:
+        """Bring a session just read up to the current shape, keeping the file it was read from.
+
+        Raise TooNew if a later Verba wrote it, ValueError or KeyError if it is not a session, and OSError if
+        the old file cannot be kept (then it is left as it is, to be tried again on the next read).
+        """
+        if not isinstance(session, dict):
+            raise ValueError("not a session")
+        found = _schema_of(session)
+        if found > SCHEMA:
+            raise TooNew
+        for n in range(found, SCHEMA):
+            session = UPGRADES[n](session)
+        session.pop("schema", None)
+        # The number goes first. A file in the current shape that has none gets it on its next save.
+        session = {"schema": SCHEMA, **session}
+        if found < SCHEMA:  # Only once the upgrade has succeeded, so a file it fails on is left as it is
+            backup = path.with_name(f"session.schema{found}.json")
+            if not backup.exists():
+                try:
+                    patiently(lambda: shutil.copy2(path, backup))
+                except OSError:
+                    log.exception("cannot keep the old file of session %s", path.parent.name)
+                    raise
+            self._save(session)
+            log.info("upgraded session %s from schema %d to %d", session["id"], found, SCHEMA)
+        return session
+
+    def newer(self) -> int:
+        """Return how many sessions were written by a later Verba (they are left out of the list)."""
+        count = 0
+        with self._lock:
+            for path in self.root.iterdir():
+                if (path / "session.json").exists():
+                    try:
+                        self._load(path.name)
+                    except TooNew:
+                        count += 1
+                    except _UNREADABLE:  # list() tells of these in app.log.
+                        pass
+        return count
 
     def _save(self, session: dict) -> None:
         """Write the session out. A failure is not raised: the next save writes what is in memory."""
